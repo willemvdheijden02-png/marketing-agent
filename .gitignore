@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+venv/
+.venv/
+
+# Output bestanden
+marketing_output/
+images/
+
+# API keys / secrets
+secrets.toml
+.streamlit/secrets.toml
+
+# OS
+.DS_Store
