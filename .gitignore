@@ -14,5 +14,12 @@ images/
 secrets.toml
 .streamlit/secrets.toml
 
+# Lokale data
+merk.json
+rapport_log.json
+auto_rapport_config.json
+auto_rapport_log.json
+*.txt
+
 # OS
 .DS_Store
