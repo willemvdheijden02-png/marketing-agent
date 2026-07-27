@@ -202,29 +202,29 @@ Beide calls parsen het antwoord als JSON en schrijven direct terug naar `leads.j
 
 ---
 
-## 8. Volautomatische aanvoer — Supabase + Vercel
+## 8. Automatische flow — Supabase + Vercel (zonder Phantombuster)
 
-De definitieve stack: leads komen **zonder handwerk** binnen en worden **automatisch gescand** op het ICP. Jij opent maandag het dashboard en de wachtrij staat al klaar.
+De definitieve stack, zonder scraping-tool: de aanvoer kost jou **± 2 minuten per week** (kopiëren en plakken), al het scannen, filteren en schrijven is daarna **volledig automatisch**. Geen Phantombuster = €56/mnd bespaard én geen scraping in het ToS-grijze gebied.
 
 ### 8.1 Architectuur
 
 ```
 LinkedIn Sales Navigator (3 opgeslagen zoekopdrachten, alerts aan)
         │
-        │  eigen schema in Phantombuster: zondagnacht
+        │  LinkedIn mailt je wekelijks: "X nieuwe resultaten"
         ▼
-Phantombuster — phantom "Sales Navigator Search Export"
-  draait per zoekopdracht, resultaat als JSON in de Phantombuster-cloud
+Jij (± 2 min/week): open de zoekopdracht → selecteer alles op de
+resultatenpagina (Ctrl+A, Ctrl+C) → plak in het dashboard
         │
-        │  Vercel Cron: maandag 07:00 → roept /api/leads-sync aan
+        │  "Plak & Parse" → POST naar /api/leads-sync (Vercel)
         ▼
 Vercel serverless functie  /api/leads-sync
-  1. Haalt per phantom het laatste resultaat op (Phantombuster API)
+  1. Claude haalt uit de geplakte tekst gestructureerde leads
+     (naam, functietitel, bedrijf, evt. profiel-link) — geen CSV nodig
   2. Ontdubbelt tegen Supabase (linkedin_url uniek, anders naam+bedrijf)
   3. Insert nieuwe leads met status 'nieuw'
   4. Claude API: ICP-score in batches van 10 → 'gekwalificeerd' / 'afgekeurd' + reden
   5. Claude API: connectienote + follow-up voor elke gekwalificeerde lead
-  6. Optioneel: samenvattingsmail ("8 gekwalificeerd, 5 afgekeurd")
         │
         ▼
 Supabase (Postgres) — tabellen: leads, icp_config
@@ -232,9 +232,14 @@ Supabase (Postgres) — tabellen: leads, icp_config
         │  supabase-py (lezen + statussen schrijven)
         ▼
 Streamlit dashboard op Railway — pipeline, wachtrij, versturen (handmatig)
+
+Vercel Cron (maandag 07:00) — vangnet & weekrapport:
+  • scoort alsnog alles wat nog status 'nieuw' heeft (vangnet)
+  • leest je Gmail: LinkedIn-alertmails → telt nieuwe matches per zoekopdracht
+  • mailt je: "8 leads klaar om te versturen · 27 nieuwe matches wachten op import"
 ```
 
-**Waarom deze taakverdeling:** de phantom draait op zijn éigen schema in Phantombuster (zondagnacht), zodat de Vercel-functie alleen resultaten hoeft op te halen — scrapen duurt minuten en past niet binnen de tijdslimiet van een serverless functie; ophalen + scoren wel.
+**Waarom "Plak & Parse" de gratis vervanger van Phantombuster is:** Claude is uitstekend in het herkennen van namen, functies en bedrijven in rommelige gekopieerde tekst. Je hoeft dus geen CSV te maken en geen tool te betalen — de hele resultatenpagina in één keer plakken is genoeg. De CSV-upload blijft bestaan als tweede route (bijv. voor een Evaboot-export als je die ooit hebt). En wil je later alsnog 100% handsfree: dan vervang je alleen stap 1 van de functie door de Phantombuster-koppeling — de rest blijft identiek.
 
 ### 8.2 Supabase — databaseschema
 
@@ -277,7 +282,7 @@ create index leads_score_idx on leads (score desc);
 - **Row Level Security aanzetten** op beide tabellen; zowel de Vercel-functie als het dashboard werken server-side met de **service role key** (nooit in code, altijd als environment variable)
 - De `linkedin_url unique`-constraint is je automatische ontdubbeling: dubbele import faalt stil per rij (upsert met `on conflict do nothing`)
 
-### 8.3 Vercel — cron + functie
+### 8.3 Vercel — functie + cron
 
 Nieuw Vercel-project (mag een aparte repo of map zijn), met:
 
@@ -285,7 +290,7 @@ Nieuw Vercel-project (mag een aparte repo of map zijn), met:
 ```json
 {
   "crons": [
-    { "path": "/api/leads-sync", "schedule": "0 6 * * 1" }
+    { "path": "/api/leads-sync?mode=weekly", "schedule": "0 6 * * 1" }
   ]
 }
 ```
@@ -295,50 +300,58 @@ Nieuw Vercel-project (mag een aparte repo of map zijn), met:
 
 | Variabele | Waarvoor |
 |---|---|
-| `PHANTOMBUSTER_API_KEY` | Resultaten ophalen |
-| `PHANTOM_AGENT_IDS` | Komma-gescheiden: de 3 phantom-id's (één per zoekopdracht) |
-| `ANTHROPIC_API_KEY` | Claude-calls voor scoring + outreach |
+| `ANTHROPIC_API_KEY` | Claude-calls voor parsen, scoring + outreach |
 | `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` | Lezen/schrijven leads |
+| `GMAIL_USER` + `GMAIL_APP_PASSWORD` | LinkedIn-alertmails tellen + weekrapport versturen (zelfde app-wachtwoord als in het dashboard) |
 | `CRON_SECRET` | De functie weigert aanroepen zonder dit geheim in de Authorization-header — anders kan iedereen je sync triggeren |
 
-**De functie `/api/leads-sync`** (Node of Python, ± 150 regels):
+**De functie `/api/leads-sync`** (Node of Python, ± 150 regels) heeft twee modes:
+
+*Mode "import" — aangeroepen door de Plak & Parse-knop in je dashboard (`POST` met `{ raw_text, bron }`):*
 
 1. Check `Authorization: Bearer CRON_SECRET`
-2. Per agent-id: `GET api.phantombuster.com/api/v2/agents/fetch-output` → laatste resultaat-JSON
-3. Map de velden naar het lead-record (zelfde flexibele kolomherkenning als hoofdstuk 4.2), `upsert ... on conflict (linkedin_url) do nothing` met `bron` = zoekopdracht
+2. Claude-call: haal uit `raw_text` een JSON-array met leads (naam, functietitel, bedrijf, linkedin_url indien zichtbaar) — geplakte Sales Nav-pagina's zijn rommelig, dat is precies waar dit goed in is
+3. `upsert ... on conflict (linkedin_url) do nothing`, `bron` = de gekozen zoekopdracht, status `nieuw`
 4. Select alle leads met status `nieuw` → Claude scoring-prompt (hoofdstuk 4.4) in batches van 10 → update `score`, `score_reden`, `status`
 5. Select `gekwalificeerd` zonder `note` → Claude outreach-prompt in batches van 10 → update `note`, `followup`
 6. Return een samenvatting `{ "nieuw": 13, "gekwalificeerd": 8, "afgekeurd": 5 }`
 
-**Tijdslimiet:** zet `maxDuration` op 300 in de functie-config en houd batches klein. Duurt een run te lang → laat de functie max ~50 leads per run verwerken; de cron van volgende week (of een handmatige trigger) pakt de rest.
+*Mode "weekly" — aangeroepen door de cron (vangnet & rapport):*
+
+1. Stap 4 + 5 van hierboven (alles scoren wat nog `nieuw` is — vangnet als je doordeweeks plakte zonder te scoren)
+2. Lees via IMAP je Gmail: tel ongelezen LinkedIn Sales Navigator alertmails per zoekopdracht
+3. Mail het weekrapport: *"8 leads klaar om te versturen · 5 wachten op follow-up · 27 nieuwe matches wachten op import (plak ze even in het dashboard)"*
+
+**Tijdslimiet:** zet `maxDuration` op 300 in de functie-config en houd batches klein. Duurt een run te lang → laat de functie max ~50 leads per run verwerken; de volgende aanroep pakt de rest.
 
 ### 8.4 Dashboard-aanpassingen (Railway blijft, alleen opslag wisselt)
 
 - `supabase>=2.0` toevoegen aan `requirements.txt`; `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` als env vars op Railway
+- **Nieuw invoerveld "Plak & Parse"** in het rechterpaneel: groot tekstveld ("Plak hier je Sales Navigator resultaten"), dropdown voor de bron-zoekopdracht (e-commerce / agency / coach-SaaS), knop **"🚀 Importeer & scan"** → POST naar `/api/leads-sync` → toont de samenvatting ("13 nieuw, 8 gekwalificeerd")
 - De helpers uit hoofdstuk 4 wisselen van bestand naar database — de rest van de UI (hoofdstuk 5) blijft identiek:
   - `laad_leads()` → `supabase.table("leads").select("*")`
   - status/note bijwerken → `update().eq("id", ...)`
   - `laad_icp()` / `sla_icp()` → `icp_config`-tabel
-- CSV-import (hoofdstuk 4.2) blijft bestaan als handmatige fallback — schrijft nu naar Supabase
-- De "🚀 Run automatische flow"-knop wordt: roep `/api/leads-sync` aan met het `CRON_SECRET` — handig om buiten het weekschema om te verversen
+- CSV-upload blijft bestaan als tweede route (bijv. voor een export die je toch al hebt) — zelfde endpoint, zelfde scan
 - Extra pipeline-regel bovenin: *"Laatste sync: ma 27 jul 07:02 — 13 nieuw, 8 gekwalificeerd"* (uit een simpele `sync_log`-tabel of het laatste function-resultaat)
 
 ### 8.5 Aangepaste bouwvolgorde (vervangt hoofdstuk 6)
 
 1. **Supabase opzetten** *(± 30 min)* — project + SQL uit 8.2 + service key noteren
-2. **Sales Navigator + Phantombuster** *(± 1 uur)* — 3 zoekopdrachten (hoofdstuk 2), phantom per zoekopdracht configureren, schema zondagnacht, één testrun
-3. **Vercel-functie + cron** *(± 2,5 uur)* — 8.3 bouwen, testen met de testrun-data: komen de leads gescoord en met notes in Supabase?
+2. **Sales Navigator instellen** *(± 15 min)* — 3 zoekopdrachten (hoofdstuk 2), opslaan, alerts aan. Geen tool-configuratie meer nodig
+3. **Vercel-functie + cron** *(± 2,5 uur)* — 8.3 bouwen; testen door één echte resultatenpagina te plakken: komen de leads gescoord en met notes in Supabase?
 4. **Dashboard koppelen** *(± 2,5 uur)* — 8.4 + de pipeline-UI uit hoofdstuk 5
-5. **Eén week proefdraaien** — maandag checken of de wachtrij vanzelf gevuld is, daarna het dagelijkse ritme uit hoofdstuk 7
+5. **Eén week proefdraaien** — maandagritme: alertmail → 2 min plakken → wachtrij staat klaar → versturen. Daarna het dagelijkse ritme uit hoofdstuk 7
 
 ### 8.6 Wat je nodig hebt (accounts & kosten)
 
 | Dienst | Kosten | Waarvoor |
 |---|---|---|
 | LinkedIn Sales Navigator | ± €90/mnd | De zoekopdrachten + alerts |
-| Phantombuster | ± €56/mnd (Starter) | Automatisch exporteren van zoekresultaten |
 | Supabase | Gratis tier | Lead-database |
-| Vercel | Gratis (Hobby) | Wekelijkse cron + sync-functie |
-| Anthropic API | ± €3–5/mnd bij dit volume | ICP-scoring + outreach-teksten |
+| Vercel | Gratis (Hobby) | Parse/scan-functie + wekelijkse cron |
+| Anthropic API | ± €3–5/mnd bij dit volume | Parsen, ICP-scoring + outreach-teksten |
 | Railway | Huidige plan | Dashboard blijft waar het staat |
+
+Enige maandelijkse kosten naast Sales Navigator zijn dus een paar euro API-gebruik — geen Phantombuster (€56/mnd) nodig.
 
