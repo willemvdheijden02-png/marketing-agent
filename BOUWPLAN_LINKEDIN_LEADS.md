@@ -176,6 +176,8 @@ Beide calls parsen het antwoord als JSON en schrijven direct terug naar `leads.j
 
 ## 6. Bouwplan — vier fases (± 6 uur totaal)
 
+> **Let op:** dit is de basisversie met `leads.json` als opslag. Omdat de definitieve stack **Supabase + Vercel** wordt (volautomatische aanvoer), geldt de aangepaste bouwvolgorde uit **hoofdstuk 8.5** — fase 1 hieronder vervalt dan grotendeels en de opslag gaat naar Supabase.
+
 1. **Fundament: data + Sales Navigator** *(± 1 uur)*
    `icp_config.json` en `leads.json` met laad/opslaan-helpers (zelfde patroon als `merk.json`). De drie zoekopdrachten als deep-links (`https://www.linkedin.com/sales/search/people?keywords=...`) + filterchecklist. Zoekopdrachten in Sales Nav opslaan, alerts aan.
 
@@ -197,3 +199,146 @@ Beide calls parsen het antwoord als JSON en schrijven direct terug naar `leads.j
 - **Follow-up pas na acceptatie** — en maximaal één herinnering. De note wekt interesse; de follow-up geeft waarde en stelt één lichte vraag
 - **Statussen bijhouden** — de pipeline is alleen betrouwbaar als "verstuurd" en "geaccepteerd" echt worden aangeklikt
 - **Elke 2 weken ICP bijstellen:** kijk welke afgekeurde leads je tóch goed vond (drempel omlaag) of welke gekwalificeerde leads nooit reageren (drempel omhoog, of branche eruit)
+
+---
+
+## 8. Volautomatische aanvoer — Supabase + Vercel
+
+De definitieve stack: leads komen **zonder handwerk** binnen en worden **automatisch gescand** op het ICP. Jij opent maandag het dashboard en de wachtrij staat al klaar.
+
+### 8.1 Architectuur
+
+```
+LinkedIn Sales Navigator (3 opgeslagen zoekopdrachten, alerts aan)
+        │
+        │  eigen schema in Phantombuster: zondagnacht
+        ▼
+Phantombuster — phantom "Sales Navigator Search Export"
+  draait per zoekopdracht, resultaat als JSON in de Phantombuster-cloud
+        │
+        │  Vercel Cron: maandag 07:00 → roept /api/leads-sync aan
+        ▼
+Vercel serverless functie  /api/leads-sync
+  1. Haalt per phantom het laatste resultaat op (Phantombuster API)
+  2. Ontdubbelt tegen Supabase (linkedin_url uniek, anders naam+bedrijf)
+  3. Insert nieuwe leads met status 'nieuw'
+  4. Claude API: ICP-score in batches van 10 → 'gekwalificeerd' / 'afgekeurd' + reden
+  5. Claude API: connectienote + follow-up voor elke gekwalificeerde lead
+  6. Optioneel: samenvattingsmail ("8 gekwalificeerd, 5 afgekeurd")
+        │
+        ▼
+Supabase (Postgres) — tabellen: leads, icp_config
+        │
+        │  supabase-py (lezen + statussen schrijven)
+        ▼
+Streamlit dashboard op Railway — pipeline, wachtrij, versturen (handmatig)
+```
+
+**Waarom deze taakverdeling:** de phantom draait op zijn éigen schema in Phantombuster (zondagnacht), zodat de Vercel-functie alleen resultaten hoeft op te halen — scrapen duurt minuten en past niet binnen de tijdslimiet van een serverless functie; ophalen + scoren wel.
+
+### 8.2 Supabase — databaseschema
+
+Nieuw project aanmaken op supabase.com (gratis tier volstaat), daarna in de SQL Editor:
+
+```sql
+create table icp_config (
+  id int primary key default 1,
+  functietitels text[] not null default '{Founder,Co-Founder,Owner,"E-commerce Manager","Head of Growth","Marketing Manager"}',
+  bedrijfsgrootte text not null default '11-200 medewerkers',
+  branches text[] not null default '{Retail,E-commerce,"Marketing & Advertising",Consultancy,SaaS}',
+  regio text not null default 'Nederland',
+  min_score int not null default 60,
+  merk_naam text, niche text, toon text default 'Warm & Persoonlijk'
+);
+insert into icp_config (id) values (1);
+
+create table leads (
+  id uuid primary key default gen_random_uuid(),
+  naam text not null,
+  functietitel text,
+  bedrijf text,
+  branche text,
+  bedrijfsgrootte text,
+  linkedin_url text unique,
+  bron text,                       -- welke zoekopdracht (ecommerce / agency / coach_saas)
+  score int,
+  score_reden text,
+  note text,
+  followup text,
+  status text not null default 'nieuw',
+  -- nieuw | gekwalificeerd | afgekeurd | verstuurd | geaccepteerd | gesprek | klant | afgewezen
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index leads_status_idx on leads (status);
+create index leads_score_idx on leads (score desc);
+```
+
+- **Row Level Security aanzetten** op beide tabellen; zowel de Vercel-functie als het dashboard werken server-side met de **service role key** (nooit in code, altijd als environment variable)
+- De `linkedin_url unique`-constraint is je automatische ontdubbeling: dubbele import faalt stil per rij (upsert met `on conflict do nothing`)
+
+### 8.3 Vercel — cron + functie
+
+Nieuw Vercel-project (mag een aparte repo of map zijn), met:
+
+**`vercel.json`:**
+```json
+{
+  "crons": [
+    { "path": "/api/leads-sync", "schedule": "0 6 * * 1" }
+  ]
+}
+```
+`0 6 * * 1` = elke maandag 06:00 UTC (07:00/08:00 NL). Hobby-plan ondersteunt cron jobs.
+
+**Environment variables (Vercel project settings):**
+
+| Variabele | Waarvoor |
+|---|---|
+| `PHANTOMBUSTER_API_KEY` | Resultaten ophalen |
+| `PHANTOM_AGENT_IDS` | Komma-gescheiden: de 3 phantom-id's (één per zoekopdracht) |
+| `ANTHROPIC_API_KEY` | Claude-calls voor scoring + outreach |
+| `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` | Lezen/schrijven leads |
+| `CRON_SECRET` | De functie weigert aanroepen zonder dit geheim in de Authorization-header — anders kan iedereen je sync triggeren |
+
+**De functie `/api/leads-sync`** (Node of Python, ± 150 regels):
+
+1. Check `Authorization: Bearer CRON_SECRET`
+2. Per agent-id: `GET api.phantombuster.com/api/v2/agents/fetch-output` → laatste resultaat-JSON
+3. Map de velden naar het lead-record (zelfde flexibele kolomherkenning als hoofdstuk 4.2), `upsert ... on conflict (linkedin_url) do nothing` met `bron` = zoekopdracht
+4. Select alle leads met status `nieuw` → Claude scoring-prompt (hoofdstuk 4.4) in batches van 10 → update `score`, `score_reden`, `status`
+5. Select `gekwalificeerd` zonder `note` → Claude outreach-prompt in batches van 10 → update `note`, `followup`
+6. Return een samenvatting `{ "nieuw": 13, "gekwalificeerd": 8, "afgekeurd": 5 }`
+
+**Tijdslimiet:** zet `maxDuration` op 300 in de functie-config en houd batches klein. Duurt een run te lang → laat de functie max ~50 leads per run verwerken; de cron van volgende week (of een handmatige trigger) pakt de rest.
+
+### 8.4 Dashboard-aanpassingen (Railway blijft, alleen opslag wisselt)
+
+- `supabase>=2.0` toevoegen aan `requirements.txt`; `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` als env vars op Railway
+- De helpers uit hoofdstuk 4 wisselen van bestand naar database — de rest van de UI (hoofdstuk 5) blijft identiek:
+  - `laad_leads()` → `supabase.table("leads").select("*")`
+  - status/note bijwerken → `update().eq("id", ...)`
+  - `laad_icp()` / `sla_icp()` → `icp_config`-tabel
+- CSV-import (hoofdstuk 4.2) blijft bestaan als handmatige fallback — schrijft nu naar Supabase
+- De "🚀 Run automatische flow"-knop wordt: roep `/api/leads-sync` aan met het `CRON_SECRET` — handig om buiten het weekschema om te verversen
+- Extra pipeline-regel bovenin: *"Laatste sync: ma 27 jul 07:02 — 13 nieuw, 8 gekwalificeerd"* (uit een simpele `sync_log`-tabel of het laatste function-resultaat)
+
+### 8.5 Aangepaste bouwvolgorde (vervangt hoofdstuk 6)
+
+1. **Supabase opzetten** *(± 30 min)* — project + SQL uit 8.2 + service key noteren
+2. **Sales Navigator + Phantombuster** *(± 1 uur)* — 3 zoekopdrachten (hoofdstuk 2), phantom per zoekopdracht configureren, schema zondagnacht, één testrun
+3. **Vercel-functie + cron** *(± 2,5 uur)* — 8.3 bouwen, testen met de testrun-data: komen de leads gescoord en met notes in Supabase?
+4. **Dashboard koppelen** *(± 2,5 uur)* — 8.4 + de pipeline-UI uit hoofdstuk 5
+5. **Eén week proefdraaien** — maandag checken of de wachtrij vanzelf gevuld is, daarna het dagelijkse ritme uit hoofdstuk 7
+
+### 8.6 Wat je nodig hebt (accounts & kosten)
+
+| Dienst | Kosten | Waarvoor |
+|---|---|---|
+| LinkedIn Sales Navigator | ± €90/mnd | De zoekopdrachten + alerts |
+| Phantombuster | ± €56/mnd (Starter) | Automatisch exporteren van zoekresultaten |
+| Supabase | Gratis tier | Lead-database |
+| Vercel | Gratis (Hobby) | Wekelijkse cron + sync-functie |
+| Anthropic API | ± €3–5/mnd bij dit volume | ICP-scoring + outreach-teksten |
+| Railway | Huidige plan | Dashboard blijft waar het staat |
+
