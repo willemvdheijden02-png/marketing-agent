@@ -355,3 +355,131 @@ Nieuw Vercel-project (mag een aparte repo of map zijn), met:
 
 Enige maandelijkse kosten naast Sales Navigator zijn dus een paar euro API-gebruik — geen Phantombuster (€56/mnd) nodig.
 
+---
+
+## 9. Uitbreidingen — van leadlijst naar klantmachine
+
+Vijf toevoegingen die het verschil maken tussen "leads vinden" en "klanten binnenhalen". Alles past binnen de bestaande Supabase + Vercel-opzet: een paar extra kolommen, één extra tabel, geen nieuwe diensten.
+
+### 9.1 Opvolgtiming — het "Vandaag doen"-lijstje
+
+Statussen zonder tijd zijn een lijst waar leads in doodbloeden; 80% van de reacties komt uit opvolging. Het dashboard rekent daarom bij elke lead uit wat er *vandaag* moet gebeuren en toont dat als actielijst **bovenaan de pipeline**:
+
+| Situatie | Regel | Actie in "Vandaag doen" |
+|---|---|---|
+| `geaccepteerd`, follow-up nog niet gestuurd | direct | **"Stuur follow-up"** — het bericht staat al klaar op de leadkaart |
+| `verstuurd`, geen acceptatie | na 14 dagen | **"Verzoek intrekken"** → lead krijgt `snooze_tot` = +8 weken |
+| `gesprek`, geen actie | na 3 dagen | **"Stuur reminder"** — kort bericht, Claude schrijft hem op verzoek |
+| `snooze_tot` verstreken | — | Lead komt terug in de wachtrij met een **verse note** (Claude schrijft een nieuwe, want de oude is verouderd) |
+
+Implementatie: drie datumkolommen (`verstuurd_op`, `geaccepteerd_op`, `laatste_actie`) die de statusknoppen automatisch zetten, plus `snooze_tot`. De regels zijn gewone queries in het dashboard — geen aparte scheduler nodig. De wekelijkse Vercel-cron telt dezelfde regels mee in het weekrapport: *"3 follow-ups te doen · 5 verzoeken intrekken · 2 gesprekken stil"*.
+
+### 9.2 Verrijking vóór het schrijven van de note
+
+Notes op basis van alleen naam + functie blijven generiek. Daarom komt er in de Vercel-functie één stap tussen kwalificatie en outreach:
+
+1. Per gekwalificeerde lead zonder `bedrijf_info`: zoek de bedrijfswebsite (staat soms in de geplakte tekst; anders domein-gok op bedrijfsnaam, bijv. `stylboutique.nl`)
+2. Haal de homepage-tekst op (± 2.000 tekens is genoeg) en sla samengevat op in `bedrijf_info`
+3. De outreach-prompt krijgt `bedrijf_info` mee met de instructie: **"noem één specifiek detail over het bedrijf"** — dus "zag dat jullie net een nieuwe collectie lanceerden" in plaats van "ik zag dat je e-commerce manager bent"
+
+Mislukt de fetch (geen site gevonden, timeout)? Gewoon doorgaan zonder verrijking — het is een bonus, geen blokkade. Dit is het verschil tussen ±15% en ±30% acceptatie.
+
+### 9.3 Statistieken + zelflerend ICP
+
+De data is er al (scores, statussen, datums, bron) — er hoeft alleen iets mee gedaan te worden:
+
+**Dashboard-expander "📊 Statistieken":**
+
+| Bron | Verstuurd | Geaccepteerd | Ratio |
+|---|---|---|---|
+| E-commerce | 40 | 13 | 33% |
+| Agency | 35 | 14 | 40% |
+| Coach/SaaS | 25 | 4 | 16% |
+
+Plus dezelfde tabel per score-band (60–70, 70–85, 85+) — zo zie je of de ICP-score echt voorspelt.
+
+**Maandelijkse Claude-analyse** (eerste cron-run van de maand): Claude krijgt de ratio's en geeft advies in de rapportmail: *"Agency accepteert 2,5x vaker dan coach/SaaS — verschuif je aandacht. Leads met score 60–70 reageren bijna nooit: zet min_score op 75."* Het systeem stelt zo zijn eigen drempel bij, in plaats van dat jij op gevoel bijstelt.
+
+### 9.4 Blokkeerlijst — nooit benaderen
+
+Voorkomt de pijnlijkste outreach-fout: een pitch naar een bestaande klant of concurrent.
+
+- Nieuwe tabel `blokkeerlijst` (naam, bedrijf, linkedin_url, reden)
+- **Import-check in de Vercel-functie**: match op linkedin_url óf bedrijfsnaam → lead wordt niet aangemaakt; samenvatting toont *"2 geblokkeerd"*
+- Beheer via een expander in het rechterpaneel (mini-formulier + lijst)
+- Elke leadkaart krijgt een knop **"🚫 Nooit benaderen"**: verwijdert de lead uit de wachtrij én zet hem op de blokkeerlijst in één klik
+
+### 9.5 Notities per lead
+
+Eén tekstveld `notities` op de leadkaart ("di gebeld, wil in september terugkomen") met een opslaan-knop. Het weekrapport neemt de laatste notitie mee bij leads in status `gesprek`, zodat je maandagochtend meteen weet waar elk gesprek stond.
+
+### 9.6 Database-wijzigingen (alles bij elkaar)
+
+```sql
+alter table leads add column verstuurd_op    timestamptz;
+alter table leads add column geaccepteerd_op timestamptz;
+alter table leads add column laatste_actie   timestamptz default now();
+alter table leads add column snooze_tot      date;
+alter table leads add column website         text;
+alter table leads add column bedrijf_info    text;
+alter table leads add column notities        text;
+
+create table blokkeerlijst (
+  id uuid primary key default gen_random_uuid(),
+  naam text,
+  bedrijf text,
+  linkedin_url text,
+  reden text,
+  created_at timestamptz not null default now()
+);
+```
+
+De statusknoppen in het dashboard zetten voortaan ook de bijbehorende datum: knop "Verstuurd" → `verstuurd_op = now()`, knop "Geaccepteerd" → `geaccepteerd_op = now()`, elke wissel → `laatste_actie = now()`.
+
+### 9.7 Lay-out — het volledige scherm (v2)
+
+```
+┌────────────────────────────────────────────────────────────────────┐
+│  🎯 LinkedIn Leads Bot                          [LinkedIn-blauw]   │
+├──────────────────────────────────────────────┬─────────────────────┤
+│  ⚡ VANDAAG DOEN                              │  SALES NAVIGATOR    │
+│  ● 3 geaccepteerd → follow-up sturen         │  [E-commerce zoek.] │
+│  ● 5 verzoeken >14 dgn open → intrekken      │  [Agency zoek.]     │
+│  ● 2 gesprekken >3 dgn stil → reminder       │  [Coach/SaaS zoek.] │
+├──────────────────────────────────────────────┤  ▸ Filters (1x)     │
+│  CHAT (zoals bij elke bot)                   │  ▸ Mijn ICP         │
+│                                              │  ─────────────────  │
+│                                              │  PLAK & PARSE       │
+│                                              │  [groot tekstveld]  │
+│                                              │  [bron: agency ▾]   │
+│                                              │  [🚀 Importeer&scan]│
+│                                              │  [CSV als 2e route] │
+│                                              │  ─────────────────  │
+│                                              │  ▸ 🚫 Blokkeerlijst │
+│                                              │  ▸ 📊 Statistieken  │
+├──────────────────────────────────────────────┴─────────────────────┤
+│  LEAD PIPELINE                                                     │
+│  [Nieuw 12] [Gekwal. 8] [Verstuurd 5] [Geacc. 3] [Gesprek 1] ...   │
+│                                                                    │
+│  ▾ Sanne Bakker · E-comm. Mgr @ StyleBoutique · 92 · geaccepteerd  │
+│    ICP: sterke fit — retailbedrijf, 45 fte                         │
+│    Bedrijf: lanceerde deze maand nieuwe zomercollectie             │
+│    ┌ Follow-up (klaar om te sturen) ──────────────────┐ [kopieer]  │
+│    │ Leuk dat we gelinkt zijn Sanne! Ik zag jullie... │            │
+│    └──────────────────────────────────────────────────┘            │
+│    Notities: [di gebeld, terugbellen in september   ] [💾]         │
+│    [🔗 Open profiel] [💬 In gesprek] [🚫 Nooit benaderen]          │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+Nieuw ten opzichte van hoofdstuk 5: het ⚡ Vandaag doen-blok bovenaan (alleen zichtbaar als er acties zijn), de verrijkingsregel ("Bedrijf: ...") op de kaart, het notitieveld, de "Nooit benaderen"-knop en de twee expanders rechts (Blokkeerlijst, Statistieken).
+
+### 9.8 Bouwvolgorde van de uitbreidingen (± 3 uur, ná hoofdstuk 8.5)
+
+1. **Database-wijzigingen** *(15 min)* — de ALTERs en de blokkeerlijst-tabel uit 9.6
+2. **Opvolgtiming + notities** *(± 1 uur)* — datums op de statusknoppen, de regels-queries, het Vandaag doen-blok, notitieveld (9.1 + 9.5)
+3. **Blokkeerlijst** *(± 30 min)* — import-check in de Vercel-functie + beheer-expander + kaartknop (9.4)
+4. **Verrijking + statistieken** *(± 1,5 uur)* — verrijkingsstap in de Vercel-functie, statistieken-expander, maandelijkse analyse in de cron (9.2 + 9.3)
+
+Het weekrapport groeit mee: *"8 klaar om te versturen · 3 follow-ups vandaag · 5 intrekken · acceptatie deze maand 33% · agency scoort het best"*.
+
