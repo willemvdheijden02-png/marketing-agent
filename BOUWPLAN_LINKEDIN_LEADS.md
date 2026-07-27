@@ -176,7 +176,7 @@ Beide calls parsen het antwoord als JSON en schrijven direct terug naar `leads.j
 
 ## 6. Bouwplan — vier fases (± 6 uur totaal)
 
-> **Let op:** dit is de basisversie met `leads.json` als opslag. Omdat de definitieve stack **Supabase + Vercel** wordt (volautomatische aanvoer), geldt de aangepaste bouwvolgorde uit **hoofdstuk 8.5** — fase 1 hieronder vervalt dan grotendeels en de opslag gaat naar Supabase.
+> **Let op:** dit is de basisversie waarbij alles ín het Streamlit-dashboard zit met `leads.json` als opslag. De definitieve stack is **Supabase + Vercel** (hoofdstuk 8): de opslag gaat naar Supabase en het lead-dashboard wordt een eigen web-app op Vercel. Het UI-ontwerp uit hoofdstuk 5 blijft daarbij 1-op-1 gelden — alleen de techniek eronder verschilt.
 
 1. **Fundament: data + Sales Navigator** *(± 1 uur)*
    `icp_config.json` en `leads.json` met laad/opslaan-helpers (zelfde patroon als `merk.json`). De drie zoekopdrachten als deep-links (`https://www.linkedin.com/sales/search/people?keywords=...`) + filterchecklist. Zoekopdrachten in Sales Nav opslaan, alerts aan.
@@ -229,9 +229,10 @@ Vercel serverless functie  /api/leads-sync
         ▼
 Supabase (Postgres) — tabellen: leads, icp_config
         │
-        │  supabase-py (lezen + statussen schrijven)
+        │  supabase-js (lezen + statussen schrijven)
         ▼
-Streamlit dashboard op Railway — pipeline, wachtrij, versturen (handmatig)
+Lead-dashboard: web-app op Vercel (zelfde project als de API-functie)
+  — pipeline, wachtrij, Plak & Parse, versturen (handmatig)
 
 Vercel Cron (maandag 07:00) — vangnet & weekrapport:
   • scoort alsnog alles wat nog status 'nieuw' heeft (vangnet)
@@ -324,34 +325,36 @@ Nieuw Vercel-project (mag een aparte repo of map zijn), met:
 
 **Tijdslimiet:** zet `maxDuration` op 300 in de functie-config en houd batches klein. Duurt een run te lang → laat de functie max ~50 leads per run verwerken; de volgende aanroep pakt de rest.
 
-### 8.4 Dashboard-aanpassingen (Railway blijft, alleen opslag wisselt)
+### 8.4 Het lead-dashboard — web-app op Vercel
 
-- `supabase>=2.0` toevoegen aan `requirements.txt`; `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` als env vars op Railway
-- **Nieuw invoerveld "Plak & Parse"** in het rechterpaneel: groot tekstveld ("Plak hier je Sales Navigator resultaten"), dropdown voor de bron-zoekopdracht (e-commerce / agency / coach-SaaS), knop **"🚀 Importeer & scan"** → POST naar `/api/leads-sync` → toont de samenvatting ("13 nieuw, 8 gekwalificeerd")
-- De helpers uit hoofdstuk 4 wisselen van bestand naar database — de rest van de UI (hoofdstuk 5) blijft identiek:
-  - `laad_leads()` → `supabase.table("leads").select("*")`
-  - status/note bijwerken → `update().eq("id", ...)`
-  - `laad_icp()` / `sla_icp()` → `icp_config`-tabel
-- CSV-upload blijft bestaan als tweede route (bijv. voor een export die je toch al hebt) — zelfde endpoint, zelfde scan
-- Extra pipeline-regel bovenin: *"Laatste sync: ma 27 jul 07:02 — 13 nieuw, 8 gekwalificeerd"* (uit een simpele `sync_log`-tabel of het laatste function-resultaat)
+Het lead-dashboard wordt een eigen web-app (bijv. **Next.js**) in **hetzelfde Vercel-project** als de API-functie — één deploy, één plek voor UI + API + cron. Alles van dit systeem draait dan op Vercel + Supabase.
+
+- **Pagina's:** `/` = de pipeline (Vandaag doen, metrics, wachtrij-kaarten — het ontwerp uit hoofdstuk 5/9.7), `/import` of een zijpaneel = Plak & Parse + CSV-upload, expanders voor ICP, blokkeerlijst en statistieken
+- **Data:** rechtstreeks via `supabase-js` (leads lezen, statussen/notities bijwerken, ICP-config); de zware AI-stappen lopen via de eigen `/api/leads-sync`
+- **Plak & Parse:** groot tekstveld + dropdown voor de bron-zoekopdracht (e-commerce / agency / coach-SaaS), knop **"🚀 Importeer & scan"** → POST naar `/api/leads-sync` → toont de samenvatting ("13 nieuw, 8 gekwalificeerd")
+- **Inloggen:** simpel houden — Supabase Auth met alleen jouw account (of desnoods een wachtwoord in een env var); de data is jouw pipeline, die mag niet publiek staan
+- Extra pipeline-regel bovenin: *"Laatste sync: ma 27 jul 07:02 — 13 nieuw, 8 gekwalificeerd"* (uit een simpele `sync_log`-tabel)
+
+**En je bestaande Marketing Agent Pro?** Dat Streamlit-dashboard blijft gewoon op Railway draaien voor al je andere bots — Streamlit past technisch niet op Vercel. Zet in de sidebar een simpele link "🎯 Lead Machine" naar je Vercel-URL, dan voelt het als één geheel. (Optioneel kun je later in Streamlit ook een read-only pipeline-blokje tonen dat uit dezelfde Supabase leest.)
 
 ### 8.5 Aangepaste bouwvolgorde (vervangt hoofdstuk 6)
 
 1. **Supabase opzetten** *(± 30 min)* — project + SQL uit 8.2 + service key noteren
 2. **Sales Navigator instellen** *(± 15 min)* — 3 zoekopdrachten (hoofdstuk 2), opslaan, alerts aan. Geen tool-configuratie meer nodig
-3. **Vercel-functie + cron** *(± 2,5 uur)* — 8.3 bouwen; testen door één echte resultatenpagina te plakken: komen de leads gescoord en met notes in Supabase?
-4. **Dashboard koppelen** *(± 2,5 uur)* — 8.4 + de pipeline-UI uit hoofdstuk 5
-5. **Eén week proefdraaien** — maandagritme: alertmail → 2 min plakken → wachtrij staat klaar → versturen. Daarna het dagelijkse ritme uit hoofdstuk 7
+3. **Vercel-project: API + cron** *(± 2,5 uur)* — 8.3 bouwen; testen door één echte resultatenpagina te plakken (via curl/Postman): komen de leads gescoord en met notes in Supabase?
+4. **Lead-dashboard bouwen op Vercel** *(± 3 uur)* — 8.4: de pipeline-pagina met het ontwerp uit hoofdstuk 5/9.7, Plak & Parse-formulier, statusknoppen, login
+5. **Link vanuit Marketing Agent Pro** *(± 10 min)* — knop in de Streamlit-sidebar naar je Vercel-URL
+6. **Eén week proefdraaien** — maandagritme: alertmail → 2 min plakken → wachtrij staat klaar → versturen. Daarna het dagelijkse ritme uit hoofdstuk 7
 
 ### 8.6 Wat je nodig hebt (accounts & kosten)
 
 | Dienst | Kosten | Waarvoor |
 |---|---|---|
 | LinkedIn Sales Navigator | ± €90/mnd | De zoekopdrachten + alerts |
-| Supabase | Gratis tier | Lead-database |
-| Vercel | Gratis (Hobby) | Parse/scan-functie + wekelijkse cron |
+| Supabase | Gratis tier | Lead-database + login |
+| Vercel | Gratis (Hobby) | Lead-dashboard + parse/scan-functie + wekelijkse cron |
 | Anthropic API | ± €3–5/mnd bij dit volume | Parsen, ICP-scoring + outreach-teksten |
-| Railway | Huidige plan | Dashboard blijft waar het staat |
+| Railway | Huidige plan | Alleen nog je bestaande Marketing Agent Pro (andere bots) |
 
 Enige maandelijkse kosten naast Sales Navigator zijn dus een paar euro API-gebruik — geen Phantombuster (€56/mnd) nodig.
 
