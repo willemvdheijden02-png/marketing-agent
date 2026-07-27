@@ -1,0 +1,488 @@
+# 🎯 Bouwplan — LinkedIn Lead Machine
+
+> Uitgewerkt plan voor een automatische LinkedIn Sales Navigator lead-flow in het Marketing Agent Pro dashboard.
+> Workflow gebaseerd op *"I Built a $10K LinkedIn Outreach Automation"* (Design with May).
+> Dit document is het bouwplan — er is nog niets in het dashboard gewijzigd. Bouw het later zelf in aan de hand van dit plan.
+
+---
+
+## 1. De workflow in één beeld
+
+Vijf stappen. Alleen stap 2 en 5 kosten jou tijd (± 15 min per dag).
+
+| # | Stap | Wie | Wat gebeurt er |
+|---|------|-----|----------------|
+| 1 | **Zoeken & alerts** | LinkedIn (automatisch) | 3 opgeslagen Sales Navigator zoekopdrachten met alerts aan → wekelijks automatisch nieuwe matches in je mail |
+| 2 | **Exporteren** | Jij (5 min/week) | Resultaten als CSV exporteren via Evaboot, Phantombuster of handmatig |
+| 3 | **ICP-scoring** | AI (Claude) | Elke lead 0–100 gescoord op jouw ICP. Onder de drempel = afgekeurd, mét reden |
+| 4 | **Personalisatie** | AI (Claude) | Per gekwalificeerde lead: connectienote (≤ 280 tekens) + follow-up DM in jouw merktoon |
+| 5 | **Versturen** | Jij (15 min/dag) | Wachtrij in dashboard: profiel openen, note plakken, versturen, status bijwerken |
+
+**Waarom versturen handmatig blijft:** automatisch verzenden via bots is tegen de LinkedIn-voorwaarden en de snelste route naar een geblokkeerd Sales Navigator-account. De AI doet 95% (vinden, filteren, scoren, schrijven) — de laatste klik is van jou. Veiliger én persoonlijker.
+
+---
+
+## 2. Sales Navigator instellen (eenmalig, ± 15 min)
+
+Drie zoekopdrachten, elk met dezelfde basis: **bedrijfsgrootte 11–200** en **geografie Nederland**.
+
+| Zoekopdracht | Functietitel (Current job title) | Branche (Industry) |
+|---|---|---|
+| **1 · E-commerce** | Founder · E-commerce Manager · Head of Growth | Retail · Consumer Goods |
+| **2 · Agency** | Founder · Owner · Managing Director | Marketing & Advertising |
+| **3 · Coach / SaaS** | Founder · CEO · Head of Growth | Software Development · Professional Training & Coaching |
+
+Checklist per zoekopdracht:
+
+- [ ] Bedrijfsgrootte: vink **11–50** én **51–200** aan (Sales Nav kent geen "11–200" als één optie)
+- [ ] Geografie: Nederland (voeg België toe als je daar ook wilt werven)
+- [ ] Extra kwaliteitsfilter: *"Posted on LinkedIn in past 30 days"* — actieve mensen accepteren en reageren vaker
+- [ ] Klik **"Zoekopdracht opslaan"** en zet **alerts AAN** → LinkedIn mailt je wekelijks nieuwe profielen die in het filter vallen (je gratis aanvoer)
+
+---
+
+## 3. Het ICP — de poortwachter
+
+Het ICP staat als instelbaar profiel in het dashboard (`icp_config.json`). Elke geïmporteerde lead wordt hiertegen gescoord; alleen échte matches komen door.
+
+**Startwaarden:**
+
+```json
+{
+  "functietitels": ["Founder", "Co-Founder", "Owner", "E-commerce Manager", "Head of Growth", "Marketing Manager"],
+  "bedrijfsgrootte": "11-200 medewerkers",
+  "branches": ["Retail", "E-commerce", "Marketing & Advertising", "Consultancy", "SaaS"],
+  "regio": "Nederland",
+  "min_score": 60
+}
+```
+
+**Hoe de score werkt:** Claude krijgt het ICP + een batch leads en geeft per lead terug: `score` (0–100) en `reden` (één zin, Nederlands). De prompt is bewust streng.
+
+- Score **≥ 60** → status `gekwalificeerd`, door naar outreach
+- Score **< 60** → status `afgekeurd`, blijft zichtbaar mét reden (zo kun je je ICP bijstellen)
+
+---
+
+## 4. Architectuur — hoe het gebouwd moet zijn
+
+Alles volgt de patronen die al in `app.py` zitten: een bot in de `BOTS`-dict, JSON-bestanden als opslag (zoals `merk.json`), en tools die Claude vanuit de chat kan aanroepen.
+
+### 4.1 Drie lagen
+
+| Laag | Inhoud |
+|---|---|
+| **UI** | Nieuwe **🎯 LinkedIn Leads Bot** in de sidebar. Rechterpaneel: zoekopdracht-knoppen, ICP-instellingen, CSV-import, flow-knop. Onder de chat: pipeline over de volle breedte |
+| **Data** | `icp_config.json` (het profiel) en `leads.json` (alle leads + status + berichten). Import ontdubbelt op LinkedIn-URL en op naam + bedrijf |
+| **AI** | Twee losse Claude-calls met strikte JSON-uitvoer: **scoren** (batches van ~12) en **outreach schrijven** (batches van ~10). Ook aanroepbaar als chat-tools |
+
+### 4.2 Het lead-record (`leads.json`)
+
+| Veld | Betekenis |
+|---|---|
+| `id`, `naam`, `functietitel`, `bedrijf` | Basis uit de CSV. Kolomnamen flexibel herkennen: `name`/`fullName`, `title`/`jobTitle`/`headline`, `company`/`companyName`, `firstName`+`lastName` |
+| `branche`, `bedrijfsgrootte`, `linkedin_url` | Voor de ICP-score en de "Open profiel"-knop |
+| `score`, `score_reden` | Resultaat van de ICP-scoring, blijft altijd zichtbaar |
+| `note`, `followup` | De gegenereerde connectienote (≤ 280 tekens) en het follow-up bericht |
+| `status`, `bron`, `datum` | Positie in de funnel, uit welke zoekopdracht/CSV de lead komt, importdatum |
+
+### 4.3 Statussen — de funnel
+
+```
+nieuw → (AI-scoring) → gekwalificeerd → verstuurd → geaccepteerd → gesprek → klant
+                     ↘ afgekeurd (buiten ICP, door de scoring)
+                                  ↘ afgewezen (handmatig, bijv. verzoek genegeerd)
+```
+
+Elke statuswissel is één klik in de wachtrij — nooit een formulier.
+
+### 4.4 De twee AI-prompts (kern van het systeem)
+
+**Scoring** — invoer: ICP + batch leads (JSON) · uitvoer: alléén JSON
+
+```
+Scoor elke lead 0-100 op ICP-fit: functietitel (beslisser?),
+bedrijfsgrootte, branche, regio. Wees streng: alleen echte
+matches boven de 60.
+→ [{"id":"...","score":85,"reden":"Founder bij retail-bedrijf, 40 fte"}]
+```
+
+**Outreach** — invoer: merknaam + niche + toon (uit de sidebar) + batch gekwalificeerde leads
+
+```
+Per lead: 'note' = NL connectienote, MAX 280 tekens, persoonlijk
+(voornaam, functie, bedrijf), nieuwsgierig makend, GEEN pitch.
+'followup' = kort bericht na acceptatie: waarde + lichte vraag.
+→ [{"id":"...","note":"...","followup":"..."}]
+```
+
+Beide calls parsen het antwoord als JSON en schrijven direct terug naar `leads.json` — de chat is er niet voor nodig, één knop ("🚀 Run automatische flow") volstaat.
+
+### 4.5 Chat-tools voor de bot
+
+| Tool | Doet |
+|---|---|
+| `scoor_leads` | Scoort alle leads met status `nieuw` op het ICP |
+| `genereer_outreach` | Schrijft note + follow-up voor gekwalificeerde leads zonder bericht |
+| `laad_pipeline` | Geeft ICP + tellingen + actieve leads terug (voor overzichten en rapporten) |
+| `update_lead_status` | Werkt de status van een lead bij op naam of id |
+
+---
+
+## 5. Het design — zo ziet het scherm eruit
+
+```
+┌────────────────────────────────────────────────────────────────────┐
+│  🎯 LinkedIn Leads Bot                          [LinkedIn-blauw]   │
+│  Sales Navigator leads — ICP scoring en outreach pipeline          │
+├──────────────────────────────────────────────┬─────────────────────┤
+│  CHAT (zoals bij elke bot)                   │  SALES NAVIGATOR    │
+│                                              │  [E-commerce zoek.] │
+│  Skills: Run lead flow · Pipeline overzicht  │  [Agency zoek.]     │
+│  Connectienote · Follow-up DM · ICP check    │  [Coach/SaaS zoek.] │
+│  Zoekstrategie · Opvolg email · Analyse      │  ▸ Filters (1x)     │
+│                                              │  ▸ Mijn ICP         │
+│                                              │  ─────────────────  │
+│                                              │  LEADS IMPORTEREN   │
+│                                              │  [CSV upload]       │
+│                                              │  [🚀 Run auto flow] │
+│                                              │  [📧 Rapport mail]  │
+├──────────────────────────────────────────────┴─────────────────────┤
+│  LEAD PIPELINE                                                     │
+│  ┌──────┬──────────┬──────────┬──────────┬─────────┬────────────┐  │
+│  │ 12   │ 8        │ 5        │ 3        │ 1       │ 9          │  │
+│  │ Nieuw│ Gekwalif.│ Verstuurd│ Geaccept.│ Gesprek │ Buiten ICP │  │
+│  └──────┴──────────┴──────────┴──────────┴─────────┴────────────┘  │
+│                                                                    │
+│  ▾ Sanne Bakker · E-commerce Manager @ StyleBoutique · score 92    │
+│    ICP: E-commerce Manager bij retailbedrijf, 45 fte — sterke fit  │
+│    ┌──────────────────────────────────────────────────────────┐    │
+│    │ Hoi Sanne, ik zag dat je de webshop van StyleBoutique    │    │
+│    │ runt — mooi hoe jullie de collectie presenteren. (...)   │    │
+│    └──────────────────────────────────────────────────────────┘    │
+│    [🔗 Open profiel]  [📤 Markeer verstuurd]  [❌ Afwijzen]        │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+**Ontwerpkeuzes:**
+
+- Botkleur **LinkedIn-blauw `#0A66C2`** — direct herkenbaar tussen de andere bots
+- Wachtrij gesorteerd op score, hoogste eerst: beste lead altijd bovenaan
+- Note in een kopieerbaar codeblok (`st.code`) — één klik kopiëren, plakken bij het verzoek
+- Statuswissel is één knop per kaart; de knop toont steeds de vólgende stap (verstuurd → geaccepteerd → gesprek → klant)
+- Metrics-rij bovenaan de pipeline zodat je in één blik de funnel ziet
+
+---
+
+## 6. Bouwplan — vier fases (± 6 uur totaal)
+
+> **Let op:** dit is de basisversie waarbij alles ín het Streamlit-dashboard zit met `leads.json` als opslag. De definitieve stack is **Supabase + Vercel** (hoofdstuk 8): de opslag gaat naar Supabase en het lead-dashboard wordt een eigen web-app op Vercel. Het UI-ontwerp uit hoofdstuk 5 blijft daarbij 1-op-1 gelden — alleen de techniek eronder verschilt.
+
+1. **Fundament: data + Sales Navigator** *(± 1 uur)*
+   `icp_config.json` en `leads.json` met laad/opslaan-helpers (zelfde patroon als `merk.json`). De drie zoekopdrachten als deep-links (`https://www.linkedin.com/sales/search/people?keywords=...`) + filterchecklist. Zoekopdrachten in Sales Nav opslaan, alerts aan.
+
+2. **Import: CSV naar leads** *(± 1 uur)*
+   CSV-parser met flexibele kolomherkenning (Evaboot/Phantombuster/handmatige exports), ontdubbeling op URL en naam+bedrijf, status `nieuw`. Uploadknop in het rechterpaneel.
+
+3. **AI-flow: scoren + outreach** *(± 2 uur)*
+   De twee Claude-calls met JSON-uitvoer (batches, drempel uit ICP), gekoppeld aan één "🚀 Run automatische flow"-knop. Zelfde functies ook registreren als chat-tools (`TOOLS` + `voer_tool_uit`) zodat de bot ze kan gebruiken.
+
+4. **Pipeline-UI + rapport** *(± 2 uur)*
+   Metrics-rij, wachtrij-kaarten met note/follow-up/profielknop en statusknoppen. Pipeline-rapport via de bestaande `stuur_gmail`-tool. Daarna live testen met één echte CSV-export.
+
+---
+
+## 7. Spelregels voor dagelijks gebruik
+
+- **Max 20–25 connectieverzoeken per dag** — daarboven flagt LinkedIn je account, zeker de eerste weken
+- **Wekelijks ritme:** maandag CSV importeren + flow draaien, daarna elke dag 15 minuten versturen en follow-uppen vanuit de wachtrij
+- **Follow-up pas na acceptatie** — en maximaal één herinnering. De note wekt interesse; de follow-up geeft waarde en stelt één lichte vraag
+- **Statussen bijhouden** — de pipeline is alleen betrouwbaar als "verstuurd" en "geaccepteerd" echt worden aangeklikt
+- **Elke 2 weken ICP bijstellen:** kijk welke afgekeurde leads je tóch goed vond (drempel omlaag) of welke gekwalificeerde leads nooit reageren (drempel omhoog, of branche eruit)
+
+---
+
+## 8. Automatische flow — Supabase + Vercel (zonder Phantombuster)
+
+De definitieve stack, zonder scraping-tool: de aanvoer kost jou **± 2 minuten per week** (kopiëren en plakken), al het scannen, filteren en schrijven is daarna **volledig automatisch**. Geen Phantombuster = €56/mnd bespaard én geen scraping in het ToS-grijze gebied.
+
+### 8.1 Architectuur
+
+```
+LinkedIn Sales Navigator (3 opgeslagen zoekopdrachten, alerts aan)
+        │
+        │  LinkedIn mailt je wekelijks: "X nieuwe resultaten"
+        ▼
+Jij (± 2 min/week): open de zoekopdracht → selecteer alles op de
+resultatenpagina (Ctrl+A, Ctrl+C) → plak in het dashboard
+        │
+        │  "Plak & Parse" → POST naar /api/leads-sync (Vercel)
+        ▼
+Vercel serverless functie  /api/leads-sync
+  1. Claude haalt uit de geplakte tekst gestructureerde leads
+     (naam, functietitel, bedrijf, evt. profiel-link) — geen CSV nodig
+  2. Ontdubbelt tegen Supabase (linkedin_url uniek, anders naam+bedrijf)
+  3. Insert nieuwe leads met status 'nieuw'
+  4. Claude API: ICP-score in batches van 10 → 'gekwalificeerd' / 'afgekeurd' + reden
+  5. Claude API: connectienote + follow-up voor elke gekwalificeerde lead
+        │
+        ▼
+Supabase (Postgres) — tabellen: leads, icp_config
+        │
+        │  supabase-js (lezen + statussen schrijven)
+        ▼
+Lead-dashboard: web-app op Vercel (zelfde project als de API-functie)
+  — pipeline, wachtrij, Plak & Parse, versturen (handmatig)
+
+Vercel Cron (maandag 07:00) — vangnet & weekrapport:
+  • scoort alsnog alles wat nog status 'nieuw' heeft (vangnet)
+  • leest je Gmail: LinkedIn-alertmails → telt nieuwe matches per zoekopdracht
+  • mailt je: "8 leads klaar om te versturen · 27 nieuwe matches wachten op import"
+```
+
+**Waarom "Plak & Parse" de gratis vervanger van Phantombuster is:** Claude is uitstekend in het herkennen van namen, functies en bedrijven in rommelige gekopieerde tekst. Je hoeft dus geen CSV te maken en geen tool te betalen — de hele resultatenpagina in één keer plakken is genoeg. De CSV-upload blijft bestaan als tweede route (bijv. voor een Evaboot-export als je die ooit hebt). En wil je later alsnog 100% handsfree: dan vervang je alleen stap 1 van de functie door de Phantombuster-koppeling — de rest blijft identiek.
+
+### 8.2 Supabase — databaseschema
+
+Nieuw project aanmaken op supabase.com (gratis tier volstaat), daarna in de SQL Editor:
+
+```sql
+create table icp_config (
+  id int primary key default 1,
+  functietitels text[] not null default '{Founder,Co-Founder,Owner,"E-commerce Manager","Head of Growth","Marketing Manager"}',
+  bedrijfsgrootte text not null default '11-200 medewerkers',
+  branches text[] not null default '{Retail,E-commerce,"Marketing & Advertising",Consultancy,SaaS}',
+  regio text not null default 'Nederland',
+  min_score int not null default 60,
+  merk_naam text, niche text, toon text default 'Warm & Persoonlijk'
+);
+insert into icp_config (id) values (1);
+
+create table leads (
+  id uuid primary key default gen_random_uuid(),
+  naam text not null,
+  functietitel text,
+  bedrijf text,
+  branche text,
+  bedrijfsgrootte text,
+  linkedin_url text unique,
+  bron text,                       -- welke zoekopdracht (ecommerce / agency / coach_saas)
+  score int,
+  score_reden text,
+  note text,
+  followup text,
+  status text not null default 'nieuw',
+  -- nieuw | gekwalificeerd | afgekeurd | verstuurd | geaccepteerd | gesprek | klant | afgewezen
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index leads_status_idx on leads (status);
+create index leads_score_idx on leads (score desc);
+```
+
+- **Row Level Security aanzetten** op beide tabellen; zowel de Vercel-functie als het dashboard werken server-side met de **service role key** (nooit in code, altijd als environment variable)
+- De `linkedin_url unique`-constraint is je automatische ontdubbeling: dubbele import faalt stil per rij (upsert met `on conflict do nothing`)
+
+### 8.3 Vercel — functie + cron
+
+Nieuw Vercel-project (mag een aparte repo of map zijn), met:
+
+**`vercel.json`:**
+```json
+{
+  "crons": [
+    { "path": "/api/leads-sync?mode=weekly", "schedule": "0 6 * * 1" }
+  ]
+}
+```
+`0 6 * * 1` = elke maandag 06:00 UTC (07:00/08:00 NL). Hobby-plan ondersteunt cron jobs.
+
+**Environment variables (Vercel project settings):**
+
+| Variabele | Waarvoor |
+|---|---|
+| `ANTHROPIC_API_KEY` | Claude-calls voor parsen, scoring + outreach |
+| `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` | Lezen/schrijven leads |
+| `GMAIL_USER` + `GMAIL_APP_PASSWORD` | LinkedIn-alertmails tellen + weekrapport versturen (zelfde app-wachtwoord als in het dashboard) |
+| `CRON_SECRET` | De functie weigert aanroepen zonder dit geheim in de Authorization-header — anders kan iedereen je sync triggeren |
+
+**De functie `/api/leads-sync`** (Node of Python, ± 150 regels) heeft twee modes:
+
+*Mode "import" — aangeroepen door de Plak & Parse-knop in je dashboard (`POST` met `{ raw_text, bron }`):*
+
+1. Check `Authorization: Bearer CRON_SECRET`
+2. Claude-call: haal uit `raw_text` een JSON-array met leads (naam, functietitel, bedrijf, linkedin_url indien zichtbaar) — geplakte Sales Nav-pagina's zijn rommelig, dat is precies waar dit goed in is
+3. `upsert ... on conflict (linkedin_url) do nothing`, `bron` = de gekozen zoekopdracht, status `nieuw`
+4. Select alle leads met status `nieuw` → Claude scoring-prompt (hoofdstuk 4.4) in batches van 10 → update `score`, `score_reden`, `status`
+5. Select `gekwalificeerd` zonder `note` → Claude outreach-prompt in batches van 10 → update `note`, `followup`
+6. Return een samenvatting `{ "nieuw": 13, "gekwalificeerd": 8, "afgekeurd": 5 }`
+
+*Mode "weekly" — aangeroepen door de cron (vangnet & rapport):*
+
+1. Stap 4 + 5 van hierboven (alles scoren wat nog `nieuw` is — vangnet als je doordeweeks plakte zonder te scoren)
+2. Lees via IMAP je Gmail: tel ongelezen LinkedIn Sales Navigator alertmails per zoekopdracht
+3. Mail het weekrapport: *"8 leads klaar om te versturen · 5 wachten op follow-up · 27 nieuwe matches wachten op import (plak ze even in het dashboard)"*
+
+**Tijdslimiet:** zet `maxDuration` op 300 in de functie-config en houd batches klein. Duurt een run te lang → laat de functie max ~50 leads per run verwerken; de volgende aanroep pakt de rest.
+
+### 8.4 Het lead-dashboard — web-app op Vercel
+
+Het lead-dashboard wordt een eigen web-app (bijv. **Next.js**) in **hetzelfde Vercel-project** als de API-functie — één deploy, één plek voor UI + API + cron. Alles van dit systeem draait dan op Vercel + Supabase.
+
+- **Pagina's:** `/` = de pipeline (Vandaag doen, metrics, wachtrij-kaarten — het ontwerp uit hoofdstuk 5/9.7), `/import` of een zijpaneel = Plak & Parse + CSV-upload, expanders voor ICP, blokkeerlijst en statistieken
+- **Data:** rechtstreeks via `supabase-js` (leads lezen, statussen/notities bijwerken, ICP-config); de zware AI-stappen lopen via de eigen `/api/leads-sync`
+- **Plak & Parse:** groot tekstveld + dropdown voor de bron-zoekopdracht (e-commerce / agency / coach-SaaS), knop **"🚀 Importeer & scan"** → POST naar `/api/leads-sync` → toont de samenvatting ("13 nieuw, 8 gekwalificeerd")
+- **Inloggen:** simpel houden — Supabase Auth met alleen jouw account (of desnoods een wachtwoord in een env var); de data is jouw pipeline, die mag niet publiek staan
+- Extra pipeline-regel bovenin: *"Laatste sync: ma 27 jul 07:02 — 13 nieuw, 8 gekwalificeerd"* (uit een simpele `sync_log`-tabel)
+
+**En je bestaande Marketing Agent Pro?** Dat Streamlit-dashboard blijft gewoon op Railway draaien voor al je andere bots — Streamlit past technisch niet op Vercel. Zet in de sidebar een simpele link "🎯 Lead Machine" naar je Vercel-URL, dan voelt het als één geheel. (Optioneel kun je later in Streamlit ook een read-only pipeline-blokje tonen dat uit dezelfde Supabase leest.)
+
+### 8.5 Aangepaste bouwvolgorde (vervangt hoofdstuk 6)
+
+1. **Supabase opzetten** *(± 30 min)* — project + SQL uit 8.2 + service key noteren
+2. **Sales Navigator instellen** *(± 15 min)* — 3 zoekopdrachten (hoofdstuk 2), opslaan, alerts aan. Geen tool-configuratie meer nodig
+3. **Vercel-project: API + cron** *(± 2,5 uur)* — 8.3 bouwen; testen door één echte resultatenpagina te plakken (via curl/Postman): komen de leads gescoord en met notes in Supabase?
+4. **Lead-dashboard bouwen op Vercel** *(± 3 uur)* — 8.4: de pipeline-pagina met het ontwerp uit hoofdstuk 5/9.7, Plak & Parse-formulier, statusknoppen, login
+5. **Link vanuit Marketing Agent Pro** *(± 10 min)* — knop in de Streamlit-sidebar naar je Vercel-URL
+6. **Eén week proefdraaien** — maandagritme: alertmail → 2 min plakken → wachtrij staat klaar → versturen. Daarna het dagelijkse ritme uit hoofdstuk 7
+
+### 8.6 Wat je nodig hebt (accounts & kosten)
+
+| Dienst | Kosten | Waarvoor |
+|---|---|---|
+| LinkedIn Sales Navigator | ± €90/mnd | De zoekopdrachten + alerts |
+| Supabase | Gratis tier | Lead-database + login |
+| Vercel | Gratis (Hobby) | Lead-dashboard + parse/scan-functie + wekelijkse cron |
+| Anthropic API | ± €3–5/mnd bij dit volume | Parsen, ICP-scoring + outreach-teksten |
+| Railway | Huidige plan | Alleen nog je bestaande Marketing Agent Pro (andere bots) |
+
+Enige maandelijkse kosten naast Sales Navigator zijn dus een paar euro API-gebruik — geen Phantombuster (€56/mnd) nodig.
+
+---
+
+## 9. Uitbreidingen — van leadlijst naar klantmachine
+
+Vijf toevoegingen die het verschil maken tussen "leads vinden" en "klanten binnenhalen". Alles past binnen de bestaande Supabase + Vercel-opzet: een paar extra kolommen, één extra tabel, geen nieuwe diensten.
+
+### 9.1 Opvolgtiming — het "Vandaag doen"-lijstje
+
+Statussen zonder tijd zijn een lijst waar leads in doodbloeden; 80% van de reacties komt uit opvolging. Het dashboard rekent daarom bij elke lead uit wat er *vandaag* moet gebeuren en toont dat als actielijst **bovenaan de pipeline**:
+
+| Situatie | Regel | Actie in "Vandaag doen" |
+|---|---|---|
+| `geaccepteerd`, follow-up nog niet gestuurd | direct | **"Stuur follow-up"** — het bericht staat al klaar op de leadkaart |
+| `verstuurd`, geen acceptatie | na 14 dagen | **"Verzoek intrekken"** → lead krijgt `snooze_tot` = +8 weken |
+| `gesprek`, geen actie | na 3 dagen | **"Stuur reminder"** — kort bericht, Claude schrijft hem op verzoek |
+| `snooze_tot` verstreken | — | Lead komt terug in de wachtrij met een **verse note** (Claude schrijft een nieuwe, want de oude is verouderd) |
+
+Implementatie: drie datumkolommen (`verstuurd_op`, `geaccepteerd_op`, `laatste_actie`) die de statusknoppen automatisch zetten, plus `snooze_tot`. De regels zijn gewone queries in het dashboard — geen aparte scheduler nodig. De wekelijkse Vercel-cron telt dezelfde regels mee in het weekrapport: *"3 follow-ups te doen · 5 verzoeken intrekken · 2 gesprekken stil"*.
+
+### 9.2 Verrijking vóór het schrijven van de note
+
+Notes op basis van alleen naam + functie blijven generiek. Daarom komt er in de Vercel-functie één stap tussen kwalificatie en outreach:
+
+1. Per gekwalificeerde lead zonder `bedrijf_info`: zoek de bedrijfswebsite (staat soms in de geplakte tekst; anders domein-gok op bedrijfsnaam, bijv. `stylboutique.nl`)
+2. Haal de homepage-tekst op (± 2.000 tekens is genoeg) en sla samengevat op in `bedrijf_info`
+3. De outreach-prompt krijgt `bedrijf_info` mee met de instructie: **"noem één specifiek detail over het bedrijf"** — dus "zag dat jullie net een nieuwe collectie lanceerden" in plaats van "ik zag dat je e-commerce manager bent"
+
+Mislukt de fetch (geen site gevonden, timeout)? Gewoon doorgaan zonder verrijking — het is een bonus, geen blokkade. Dit is het verschil tussen ±15% en ±30% acceptatie.
+
+### 9.3 Statistieken + zelflerend ICP
+
+De data is er al (scores, statussen, datums, bron) — er hoeft alleen iets mee gedaan te worden:
+
+**Dashboard-expander "📊 Statistieken":**
+
+| Bron | Verstuurd | Geaccepteerd | Ratio |
+|---|---|---|---|
+| E-commerce | 40 | 13 | 33% |
+| Agency | 35 | 14 | 40% |
+| Coach/SaaS | 25 | 4 | 16% |
+
+Plus dezelfde tabel per score-band (60–70, 70–85, 85+) — zo zie je of de ICP-score echt voorspelt.
+
+**Maandelijkse Claude-analyse** (eerste cron-run van de maand): Claude krijgt de ratio's en geeft advies in de rapportmail: *"Agency accepteert 2,5x vaker dan coach/SaaS — verschuif je aandacht. Leads met score 60–70 reageren bijna nooit: zet min_score op 75."* Het systeem stelt zo zijn eigen drempel bij, in plaats van dat jij op gevoel bijstelt.
+
+### 9.4 Blokkeerlijst — nooit benaderen
+
+Voorkomt de pijnlijkste outreach-fout: een pitch naar een bestaande klant of concurrent.
+
+- Nieuwe tabel `blokkeerlijst` (naam, bedrijf, linkedin_url, reden)
+- **Import-check in de Vercel-functie**: match op linkedin_url óf bedrijfsnaam → lead wordt niet aangemaakt; samenvatting toont *"2 geblokkeerd"*
+- Beheer via een expander in het rechterpaneel (mini-formulier + lijst)
+- Elke leadkaart krijgt een knop **"🚫 Nooit benaderen"**: verwijdert de lead uit de wachtrij én zet hem op de blokkeerlijst in één klik
+
+### 9.5 Notities per lead
+
+Eén tekstveld `notities` op de leadkaart ("di gebeld, wil in september terugkomen") met een opslaan-knop. Het weekrapport neemt de laatste notitie mee bij leads in status `gesprek`, zodat je maandagochtend meteen weet waar elk gesprek stond.
+
+### 9.6 Database-wijzigingen (alles bij elkaar)
+
+```sql
+alter table leads add column verstuurd_op    timestamptz;
+alter table leads add column geaccepteerd_op timestamptz;
+alter table leads add column laatste_actie   timestamptz default now();
+alter table leads add column snooze_tot      date;
+alter table leads add column website         text;
+alter table leads add column bedrijf_info    text;
+alter table leads add column notities        text;
+
+create table blokkeerlijst (
+  id uuid primary key default gen_random_uuid(),
+  naam text,
+  bedrijf text,
+  linkedin_url text,
+  reden text,
+  created_at timestamptz not null default now()
+);
+```
+
+De statusknoppen in het dashboard zetten voortaan ook de bijbehorende datum: knop "Verstuurd" → `verstuurd_op = now()`, knop "Geaccepteerd" → `geaccepteerd_op = now()`, elke wissel → `laatste_actie = now()`.
+
+### 9.7 Lay-out — het volledige scherm (v2)
+
+```
+┌────────────────────────────────────────────────────────────────────┐
+│  🎯 LinkedIn Leads Bot                          [LinkedIn-blauw]   │
+├──────────────────────────────────────────────┬─────────────────────┤
+│  ⚡ VANDAAG DOEN                              │  SALES NAVIGATOR    │
+│  ● 3 geaccepteerd → follow-up sturen         │  [E-commerce zoek.] │
+│  ● 5 verzoeken >14 dgn open → intrekken      │  [Agency zoek.]     │
+│  ● 2 gesprekken >3 dgn stil → reminder       │  [Coach/SaaS zoek.] │
+├──────────────────────────────────────────────┤  ▸ Filters (1x)     │
+│  CHAT (zoals bij elke bot)                   │  ▸ Mijn ICP         │
+│                                              │  ─────────────────  │
+│                                              │  PLAK & PARSE       │
+│                                              │  [groot tekstveld]  │
+│                                              │  [bron: agency ▾]   │
+│                                              │  [🚀 Importeer&scan]│
+│                                              │  [CSV als 2e route] │
+│                                              │  ─────────────────  │
+│                                              │  ▸ 🚫 Blokkeerlijst │
+│                                              │  ▸ 📊 Statistieken  │
+├──────────────────────────────────────────────┴─────────────────────┤
+│  LEAD PIPELINE                                                     │
+│  [Nieuw 12] [Gekwal. 8] [Verstuurd 5] [Geacc. 3] [Gesprek 1] ...   │
+│                                                                    │
+│  ▾ Sanne Bakker · E-comm. Mgr @ StyleBoutique · 92 · geaccepteerd  │
+│    ICP: sterke fit — retailbedrijf, 45 fte                         │
+│    Bedrijf: lanceerde deze maand nieuwe zomercollectie             │
+│    ┌ Follow-up (klaar om te sturen) ──────────────────┐ [kopieer]  │
+│    │ Leuk dat we gelinkt zijn Sanne! Ik zag jullie... │            │
+│    └──────────────────────────────────────────────────┘            │
+│    Notities: [di gebeld, terugbellen in september   ] [💾]         │
+│    [🔗 Open profiel] [💬 In gesprek] [🚫 Nooit benaderen]          │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+Nieuw ten opzichte van hoofdstuk 5: het ⚡ Vandaag doen-blok bovenaan (alleen zichtbaar als er acties zijn), de verrijkingsregel ("Bedrijf: ...") op de kaart, het notitieveld, de "Nooit benaderen"-knop en de twee expanders rechts (Blokkeerlijst, Statistieken).
+
+### 9.8 Bouwvolgorde van de uitbreidingen (± 3 uur, ná hoofdstuk 8.5)
+
+1. **Database-wijzigingen** *(15 min)* — de ALTERs en de blokkeerlijst-tabel uit 9.6
+2. **Opvolgtiming + notities** *(± 1 uur)* — datums op de statusknoppen, de regels-queries, het Vandaag doen-blok, notitieveld (9.1 + 9.5)
+3. **Blokkeerlijst** *(± 30 min)* — import-check in de Vercel-functie + beheer-expander + kaartknop (9.4)
+4. **Verrijking + statistieken** *(± 1,5 uur)* — verrijkingsstap in de Vercel-functie, statistieken-expander, maandelijkse analyse in de cron (9.2 + 9.3)
+
+Het weekrapport groeit mee: *"8 klaar om te versturen · 3 follow-ups vandaag · 5 intrekken · acceptatie deze maand 33% · agency scoort het best"*.
+
