@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="nl" data-analytics-id="VUL_IN_GA4_ID">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cookiebeleid | 8eonAI</title>
+<meta name="description" content="Welke cookies 8eonAI gebruikt, waarvoor, en hoe je je keuze aanpast.">
+<link rel="canonical" href="https://8eon.nl/juridisch/cookiebeleid.html">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23161514'/%3E%3Ctext x='16' y='23' font-family='Georgia,serif' font-size='19' fill='%23f4f2ee' text-anchor='middle'%3E8%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,400;0,500;1,400&family=Inter:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="/assets/css/styles.css?v=1">
+<script>document.documentElement.classList.add("js");</script>
+</head>
+<body>
+
+<a class="skip" href="#main">Naar de inhoud</a>
+
+<header class="nav">
+	<div class="wrap nav__inner">
+		<a class="nav__logo" href="/">8eonAI</a>
+		<a class="btn btn--ghost" href="/">Terug naar de site</a>
+	</div>
+</header>
+
+<main id="main" class="section wrap">
+	<article class="prose">
+		<p class="eyebrow">Juridisch</p>
+		<h1>Cookiebeleid</h1>
+		<p class="prose__meta">Laatst bijgewerkt: 2 augustus 2026</p>
+
+		<h2>1. Wat cookies zijn</h2>
+		<p>Cookies zijn kleine tekstbestanden die een website op je apparaat plaatst. Sommige zijn nodig om de site te laten werken, andere meten hoe de site gebruikt wordt.</p>
+
+		<h2>2. Welke cookies wij gebruiken</h2>
+		<div class="table-wrap">
+			<table>
+				<thead><tr><th>Soort</th><th>Waarvoor</th><th>Bewaartermijn</th><th>Toestemming</th></tr></thead>
+				<tbody>
+					<tr>
+						<td>Functioneel</td>
+						<td>De site laten werken en de agendamodule tonen. Calendly plaatst hiervoor een eigen beveiligingscookie. Je keuze in de cookiebanner wordt lokaal in je browser bewaard.</td>
+						<td>Sessie tot 1 jaar</td>
+						<td>Niet nodig</td>
+					</tr>
+					<tr>
+						<td>Analytisch</td>
+						<td>Meten welke pagina's bezocht worden en waar bezoekers afhaken, zodat wij de site kunnen verbeteren.</td>
+						<td>14 maanden</td>
+						<td>Vereist</td>
+					</tr>
+					<tr>
+						<td>Marketing</td>
+						<td>Advertentiepixels. Deze worden op dit moment niet gebruikt; zodra dat verandert wordt deze tabel bijgewerkt.</td>
+						<td>—</td>
+						<td>Vereist</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+
+		<div class="note">
+			<p>Analytische en marketingcookies worden pas geplaatst nadat je in de cookiebanner akkoord bent gegaan. Kies je voor "alleen noodzakelijk", dan wordt er geen analytics geladen.</p>
+		</div>
+
+		<h2>3. Je keuze aanpassen</h2>
+		<p>Je kunt je keuze op elk moment intrekken. Klik hieronder om je voorkeur te wissen; bij je volgende paginabezoek verschijnt de banner opnieuw. Je kunt cookies ook verwijderen via de instellingen van je browser.</p>
+		<p><button class="btn btn--ghost" type="button" id="reset-consent">Cookievoorkeur wissen</button></p>
+
+		<h2>4. Meer weten</h2>
+		<p>Hoe wij met persoonsgegevens omgaan staat in het <a href="/juridisch/privacybeleid.html">privacybeleid</a>. Vragen? Mail naar <a href="mailto:info@8eon.nl">info@8eon.nl</a>.</p>
+	</article>
+</main>
+
+<footer class="footer">
+	<div class="wrap">
+		<div class="footer__legal">
+			<span>© <span data-year>2026</span> 8eonAI</span>
+			<span><a href="/">Home</a></span>
+			<span><a href="/juridisch/algemene-voorwaarden.html">Algemene voorwaarden</a></span>
+			<span><a href="/juridisch/privacybeleid.html">Privacybeleid</a></span>
+			<span><a href="/juridisch/verwerkersovereenkomst.html">Verwerkersovereenkomst</a></span>
+			<span><a href="/juridisch/opzeg-en-annuleringsbeleid.html">Opzeggen &amp; annuleren</a></span>
+		</div>
+	</div>
+</footer>
+
+<aside class="cookie" hidden aria-label="Cookietoestemming">
+	<p>Ik gebruik analytische cookies om te zien welke pagina's werken en waar bezoekers afhaken. Die worden pas geplaatst als je akkoord gaat.</p>
+	<div class="btn-row">
+		<button class="btn btn--primary" type="button" data-consent="accept">Akkoord</button>
+		<button class="btn btn--ghost" type="button" data-consent="decline">Alleen noodzakelijk</button>
+	</div>
+</aside>
+
+<script src="/assets/js/main.js?v=1" defer></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+	var btn = document.getElementById("reset-consent");
+	if (!btn) return;
+	btn.addEventListener("click", function () {
+		try { localStorage.removeItem("8eon.consent"); } catch (e) { /* negeren */ }
+		btn.textContent = "Gewist — herlaad de pagina";
+	});
+});
+</script>
+</body>
+</html>
