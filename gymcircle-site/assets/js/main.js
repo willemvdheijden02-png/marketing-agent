@@ -46,26 +46,41 @@ document.addEventListener('click', (e) => {
    or fails, the real app screenshot in `poster` stays put. The page is
    shippable today and gets better the day clips land in /clips.
    -------------------------------------------------------------------------- */
+/* Which clips actually exist in /clips. Empty means every video slot renders
+   as its poster screenshot — no requests, no 404s in the console. Add the
+   filename here the day you drop the file in and that slot starts playing:
+
+     const AVAILABLE_CLIPS = new Set(['clips/train.mp4']);                     */
+const AVAILABLE_CLIPS = new Set([]);
+
 document.querySelectorAll('video[data-clip]').forEach((video) => {
   const src = video.dataset.clip;
-  fetch(src, { method: 'HEAD' })
-    .then((r) => {
-      if (!r.ok) throw new Error('no clip');
-      const s = document.createElement('source');
-      s.src = src; s.type = 'video/mp4';
-      video.appendChild(s);
-      video.load();
-      video.dataset.hasClip = 'true';
-    })
-    .catch(() => {
-      // Keep the poster frame visible as a plain image.
-      const img = new Image();
-      img.src = video.poster;
-      img.alt = video.getAttribute('aria-label') || '';
-      img.loading = 'lazy';
-      img.className = video.className;
-      video.replaceWith(img);
-    });
+
+  // Not shot yet: keep the poster frame visible as a plain image.
+  if (!AVAILABLE_CLIPS.has(src)) {
+    const img = new Image();
+    img.src = video.poster;
+    img.alt = video.getAttribute('aria-label') || '';
+    img.loading = 'lazy';
+    img.className = video.className;
+    video.replaceWith(img);
+    return;
+  }
+
+  const s = document.createElement('source');
+  s.src = src; s.type = 'video/mp4';
+  video.appendChild(s);
+  video.load();
+  video.dataset.hasClip = 'true';
+
+  // A listed clip that still fails to load falls back to the poster too.
+  video.addEventListener('error', () => {
+    const img = new Image();
+    img.src = video.poster;
+    img.alt = video.getAttribute('aria-label') || '';
+    img.className = video.className;
+    video.replaceWith(img);
+  }, { once: true });
 });
 
 // Play clips only while visible — saves battery, keeps scroll smooth.

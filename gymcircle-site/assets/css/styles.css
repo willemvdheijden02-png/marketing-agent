@@ -94,8 +94,11 @@ button{ font:inherit; color:inherit; }
 .display--xl{ font-size:clamp(3.2rem, 9.5vw, 6.6rem); }
 .display em{ font-style:normal; color:var(--orange); }
 
-.lede{ font-size:clamp(1.05rem, 1.7vw, 1.28rem); line-height:1.6; color:var(--body); max-width:56ch; margin:0 0 2rem; }
-.body{ font-size:1.05rem; color:var(--body); max-width:52ch; margin:0 0 1.5rem; }
+/* margin-block, not the `margin` shorthand: the shorthand would also set
+   margin-inline:0 and — being declared later than .narrow — would silently
+   beat its margin-inline:auto, pushing centred ledes off-axis. */
+.lede{ font-size:clamp(1.05rem, 1.7vw, 1.28rem); line-height:1.6; color:var(--body); max-width:56ch; margin-block:0 2rem; }
+.body{ font-size:1.05rem; color:var(--body); max-width:52ch; margin-block:0 1.5rem; }
 .small{ font-size:.9rem; }
 .dim{ color:var(--dim); }
 
