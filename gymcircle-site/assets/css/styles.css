@@ -322,31 +322,53 @@ button{ font:inherit; color:inherit; }
 @keyframes spin-rev{ to{ transform:rotate(calc(var(--i) * 60deg)) translate(min(155px,38vw)) rotate(calc(var(--i) * -60deg - 360deg)); } }
 @media (max-width:900px){ .orbit{ display:none; } }
 
-/* ---------- 3D recovery body ---------- */
-.body3d{ padding:var(--sec) 0; background:var(--bg-2); border-block:1px solid var(--line); }
-.body3d__grid{ display:grid; grid-template-columns:.9fr 1.1fr; gap:clamp(32px,6vw,80px); align-items:center; }
-@media (max-width:900px){ .body3d__grid{ grid-template-columns:1fr; } }
+/* ---------- Recovery body map ---------- */
+.bodymap{ padding:var(--sec) 0; background:var(--bg-2); border-block:1px solid var(--line); }
+.bodymap__grid{ display:grid; grid-template-columns:.9fr 1.1fr; gap:clamp(32px,6vw,80px); align-items:center; }
+@media (max-width:900px){ .bodymap__grid{ grid-template-columns:1fr; } }
 
-.body3d__stage{ position:relative; }
-.body3d__canvas{
-  position:relative; width:100%; aspect-ratio:4/5; max-height:620px;
-  border-radius:var(--r-lg); overflow:hidden; cursor:grab;
+.bodymap__stage{ position:relative; }
+.bodymap__figs{
+  display:grid; grid-template-columns:1fr 1fr; gap:clamp(8px,2vw,24px);
+  padding:clamp(16px,3vw,28px);
+  border:1px solid var(--line-2); border-radius:var(--r-lg);
   background:
-    radial-gradient(60% 60% at 50% 35%, rgba(255,77,15,.10), transparent 70%),
+    radial-gradient(60% 60% at 50% 30%, rgba(255,77,15,.09), transparent 70%),
     linear-gradient(180deg, #17130F, #0B0A09);
-  border:1px solid var(--line-2);
-  touch-action:pan-y;
 }
-.body3d__canvas.is-dragging{ cursor:grabbing; }
-.body3d__canvas canvas{ width:100% !important; height:100% !important; display:block; }
-.body3d__canvas img{ width:100%; height:100%; object-fit:contain; }
+.bodyfig{ margin:0; display:flex; flex-direction:column; align-items:center; gap:10px; }
+.bodyfig svg{ width:100%; height:auto; max-height:min(60vh,520px); display:block; overflow:visible; }
+.bodyfig figcaption{
+  font-size:.76rem; letter-spacing:.14em; text-transform:uppercase; color:var(--dim);
+}
 
-.body3d__readout{
+/* Anatomical figure. Body mass sits under the tracked muscle groups.
+   Muscle geometry: react-native-body-highlighter (MIT, © 2022 ELABBASSI
+   Hicham) — see assets/vendor/body-highlighter-LICENSE.txt. Rendered here as
+   static SVG, so none of the library ships. */
+.bm-silhouette{ fill:#2A2521; stroke:#2A2521; stroke-width:8; stroke-linejoin:round; }
+.bm-base{ fill:#3E3630; }
+.m{
+  fill:var(--ready);
+  stroke:rgba(11,10,9,.5); stroke-width:1.5;
+  cursor:pointer;
+  transition:fill .18s ease, opacity .18s ease;
+}
+.m--worked{ fill:var(--orange); }
+.m:hover{ opacity:.82; }
+/* Selected group reads as selected on BOTH figures at once, which is the
+   point of showing front and back together. */
+.m.is-active{ stroke:var(--ink); stroke-width:2.4; }
+.bodymap__figs.has-selection .m:not(.is-active){ opacity:.34; }
+
+@media (prefers-reduced-motion:reduce){ .m{ transition:none; } }
+
+.bodymap__readout{
   display:flex; align-items:center; justify-content:space-between; gap:16px;
   flex-wrap:wrap; margin-top:18px;
   background:var(--surface); border:1px solid var(--line); border-radius:var(--r); padding:16px 20px;
 }
-.body3d__pick{ margin:0; color:var(--ink); font-weight:600; }
+.bodymap__pick{ margin:0; color:var(--ink); font-weight:600; }
 
 .legend{ list-style:none; display:flex; gap:22px; padding:0; margin:0 0 1.4rem; font-size:.94rem; color:var(--body); }
 .legend .dot{ display:inline-block; width:11px; height:11px; border-radius:50%; margin-right:7px; }

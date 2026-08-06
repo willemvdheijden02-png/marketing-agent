@@ -19,7 +19,7 @@ downloads.
 | **Video slots everywhere a mockup used to be** | The pitch is live counts, streaks and PR celebrations. Motion proves it; a static PNG asks people to take your word for it. |
 | **Desktop QR code** (hero + modal) | The old page gave desktop visitors two store buttons they physically could not tap. That was a dead end for every laptop visitor. |
 | **Third-space section promoted from last to third** | It's the one thing no competitor has. It was buried under table-stakes features. |
-| **Interactive 3D recovery map** | The only 3D on the page, and the only visual that carries information a flat image can't: recovery state is per muscle, and muscles are on all sides of a body. Front shows chest/delts hot; spin it and you see traps, lats, hamstrings. |
+| **Interactive recovery map** | Front and back anatomical muscle chart, the pattern every training app uses. Tap any muscle or use the region chips; the selection lights up on both views at once and dims the rest. State is baked into the SVG classes, so it reads correctly with JavaScript off. |
 | **CSS-3D "circle" orbit** | Makes the product's central noun literal, and puts people (initials) on a page about training with people. Pure CSS — no library. |
 | **Analytics on every CTA + scroll depth** | Without it, "did the redesign work?" is unanswerable. Vendor-agnostic: fires into GA4, Plausible, PostHog or dataLayer, whichever is present. |
 | **Self-hosted display font** (Anton, 19KB) | No Google Fonts request — faster, and no third-party call from an EU-facing page. |
@@ -110,7 +110,7 @@ events flow automatically. Events emitted:
 
 `nav_get_app`, `hero_appstore`, `hero_googleplay`, `final_appstore`,
 `final_googleplay`, `modal_appstore`, `modal_googleplay`, `final_qr`,
-`faq_open`, `body3d_loaded`, `body3d_pick`, `scroll_depth` (25/50/75/100)
+`faq_open`, `bodymap_pick`, `scroll_depth` (25/50/75/100)
 
 **The number that matters is store-button clicks per visitor.** That's the
 kill criterion: if it hasn't moved two weeks after launch, the bottleneck is
@@ -121,29 +121,28 @@ instead.
 
 ## Performance notes
 
-- `three.js` (vendored, ~170KB gzipped) is **dynamically imported only when the
-  recovery section approaches the viewport**, and only if WebGL is present. It
-  sits well below the fold, so it can never delay the store buttons or the LCP
-  element.
-- No WebGL, or the module fails to load → the section falls back to the
-  existing `recovery-body.png` automatically.
-- `prefers-reduced-motion` disables auto-rotation, the pulse, the marquee, the
-  parallax tilt and all reveals. The figure stays draggable.
+- The recovery map is inline SVG with no runtime dependency. There is no
+  renderer to download and nothing to initialise — it costs ~48KB of markup in
+  the document (well under 12KB over the wire once compressed) and zero
+  requests.
+- Recovery state is baked into the SVG classes, so the map is correct before
+  any JavaScript runs. `main.js` only adds tapping.
+- `prefers-reduced-motion` disables the marquee, the parallax tilt, all reveals
+  and the map's colour transitions.
 - Clips play only while on screen and pause when scrolled past or the tab is
   hidden.
-- The 3D render loop stops entirely when the section leaves the viewport.
 
 ## Browser support
 
 Chrome/Edge/Safari/Firefox current. Uses ES modules, `IntersectionObserver`,
-`ResizeObserver`, `aspect-ratio` and `color-mix()`. Older browsers get the page
-without the 3D map and without the frosted nav — everything else works.
+`aspect-ratio` and `color-mix()`. Older browsers get the page without the
+frosted nav; the recovery map itself is plain SVG and works everywhere.
 
 ## Third-party
 
 | Package | Licence | Where |
 |---|---|---|
-| three.js 0.169 | MIT | `assets/vendor/three.module.min.js` |
+| Muscle geometry, from react-native-body-highlighter 3.2.0 (© 2022 ELABBASSI Hicham) | MIT | rendered as static SVG in `index.html`; licence at `assets/vendor/body-highlighter-LICENSE.txt` |
 | qrcode-generator 1.4.4 | MIT | `assets/vendor/qrcode.js` |
 | Anton | OFL 1.1 | `assets/fonts/` |
 

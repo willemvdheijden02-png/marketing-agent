@@ -181,57 +181,103 @@ document.querySelectorAll('.acc__btn').forEach((btn) => {
   addEventListener('keydown', (e) => { if (e.key === 'Escape' && !modal.hidden) close(); });
 })();
 
-/* ---------- 9. The 3D recovery map --------------------------------------
-   Loaded only when the section approaches the viewport, and only if WebGL is
-   actually available. It sits well below the fold, so it can never delay the
-   store buttons or the LCP element.
+/* ---------- 9. The recovery body map -------------------------------------
+   The map itself is inline SVG with the recovery state baked into its
+   classes, so it renders correctly with JavaScript off. This only adds the
+   tapping. Wire MUSCLE_STATE to real per-user data if this ever renders
+   logged in; as marketing copy it shows a realistic mid-week state (a push
+   day two days ago) rather than an empty board.
    -------------------------------------------------------------------------- */
+const MUSCLE_STATE = {
+  chest: 'worked', shoulders: 'worked', triceps: 'worked',
+  traps: 'ready', lats: 'ready', biceps: 'ready', abs: 'ready',
+  obliques: 'ready', glutes: 'ready', quads: 'ready',
+  hamstrings: 'ready', calves: 'ready',
+};
+
+const MUSCLE_NAMES = {
+  chest: 'Chest', shoulders: 'Shoulders', triceps: 'Triceps', traps: 'Traps',
+  lats: 'Lats', biceps: 'Biceps', abs: 'Abs', obliques: 'Obliques',
+  glutes: 'Glutes', quads: 'Quads', hamstrings: 'Hamstrings', calves: 'Calves',
+};
+
+/* The six chips map onto those twelve groups. */
+const REGIONS = {
+  chest: ['chest'],
+  back: ['lats', 'traps'],
+  shoulders: ['shoulders'],
+  arms: ['biceps', 'triceps'],
+  core: ['abs', 'obliques'],
+  legs: ['glutes', 'quads', 'hamstrings', 'calves'],
+};
+const REGION_NAMES = {
+  chest: 'Chest', back: 'Back', shoulders: 'Shoulders',
+  arms: 'Arms', core: 'Core', legs: 'Legs',
+};
+
 (() => {
-  const host = document.querySelector('.js-body3d');
-  if (!host) return;
+  const figs = document.querySelector('.js-bodymap');
+  if (!figs) return;
 
-  const readout = document.querySelector('.js-body3d-pick');
-  const listBtns = [...document.querySelectorAll('.js-muscle-list button')];
+  const readout = document.querySelector('.js-bodymap-pick');
+  const chips = [...document.querySelectorAll('.js-muscle-list button')];
+  const shapes = [...figs.querySelectorAll('.m')];
 
-  function bailToImage() {
-    host.innerHTML = `<img src="${host.dataset.fallback}" alt="Muscle recovery map showing which groups are ready to train">`;
+  const total = Object.keys(MUSCLE_STATE).length;
+  const readyCount = Object.values(MUSCLE_STATE).filter((s) => s === 'ready').length;
+  const summary = `${readyCount} of ${total} muscle groups ready to train`;
+
+  const regionOf = (muscle) =>
+    Object.keys(REGIONS).find((r) => REGIONS[r].includes(muscle)) || null;
+
+  let active = null;
+
+  /**
+   * @param {string|null} region     one of REGIONS, or null to clear
+   * @param {string} [preciseName]   specific muscle name when tapped on the body
+   * @param {string} [preciseState]
+   */
+  function setActive(region, preciseName, preciseState) {
+    active = region;
+    const groups = region ? REGIONS[region] : [];
+
+    figs.classList.toggle('has-selection', !!region);
+    for (const s of shapes) s.classList.toggle('is-active', groups.includes(s.dataset.muscle));
+    for (const c of chips) c.classList.toggle('is-active', c.dataset.muscle === region);
+
+    if (!readout) return;
+    if (!region) { readout.textContent = summary; return; }
+
+    const name = preciseName || REGION_NAMES[region];
+    const state = preciseState
+      || (groups.some((g) => MUSCLE_STATE[g] === 'worked') ? 'worked' : 'ready');
+    readout.textContent = state === 'worked'
+      ? `${name} — still recovering, give it a day`
+      : `${name} — fresh, good to train today`;
   }
 
-  function hasWebGL() {
-    try {
-      const c = document.createElement('canvas');
-      return !!(window.WebGLRenderingContext && (c.getContext('webgl2') || c.getContext('webgl')));
-    } catch { return false; }
+  for (const shape of shapes) {
+    shape.addEventListener('click', () => {
+      const muscle = shape.dataset.muscle;
+      const region = regionOf(muscle);
+      // Tapping the selected group again clears it.
+      if (region && region === active) return setActive(null);
+      // Name the exact muscle tapped, but light up its whole region.
+      setActive(region, MUSCLE_NAMES[muscle], MUSCLE_STATE[muscle]);
+      track('bodymap_pick', { muscle });
+    });
   }
 
-  if (!hasWebGL()) return bailToImage();
+  for (const chip of chips) {
+    chip.addEventListener('click', () => {
+      const region = chip.dataset.muscle;
+      setActive(region === active ? null : region);
+      if (region !== active) track('bodymap_pick', { muscle: region });
+    });
+  }
 
-  const io = new IntersectionObserver(async (entries) => {
-    // Check every entry, not just the first: a batched callback can deliver
-    // the intersecting one in any position.
-    if (!entries.some((en) => en.isIntersecting)) return;
-    io.disconnect();
-    try {
-      const { initBody3D } = await import('./body3d.js');
-      const api = initBody3D(host, {
-        onPick(group, text) {
-          if (readout) readout.textContent = text;
-          listBtns.forEach((b) => b.classList.toggle('is-active', b.dataset.muscle === group));
-          if (group) track('body3d_pick', { muscle: group });
-        },
-      });
-      listBtns.forEach((b) => {
-        b.addEventListener('click', () => {
-          const same = b.classList.contains('is-active');
-          api.setActive(same ? null : b.dataset.muscle);
-        });
-      });
-      track('body3d_loaded');
-    } catch (err) {
-      console.warn('3D recovery map failed to load, falling back to image', err);
-      bailToImage();
-    }
-  }, { rootMargin: '300px' });
+  // Tapping the empty space around the figures clears the selection.
+  figs.addEventListener('click', (e) => { if (!e.target.closest('.m')) setActive(null); });
 
-  io.observe(host);
+  setActive(null);
 })();
