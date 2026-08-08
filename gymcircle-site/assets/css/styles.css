@@ -238,11 +238,33 @@ button{ font:inherit; color:inherit; }
 .float strong{ display:block; font-family:var(--font-display); letter-spacing:.03em;
   text-transform:uppercase; color:var(--ink); font-size:1.02rem; line-height:1.1; }
 .float span{ font-size:.76rem; color:var(--dim); letter-spacing:.04em; text-transform:uppercase; }
+/* Card variants. The numbers in these are the app's own screens, so the page
+   shows the product rather than describing it. */
+.float--stat strong{ font-size:1.7rem; letter-spacing:.02em; }
+.float--ready strong{ color:var(--ready); }
+.float__bar{ display:block; width:116px; height:5px; margin:8px 0 5px; border-radius:999px;
+  background:var(--line-2); overflow:hidden; }
+.float__bar i{ display:block; height:100%; width:var(--p); border-radius:999px;
+  background:linear-gradient(90deg, var(--orange), var(--orange-2)); }
+
+/* Placement. A feature column is wider than the screenshot it centres, so
+   0 tucks a card against the slab's edge rather than out into the gutter. */
+.float--tl{ top:7%;    left:0;  animation-delay:-1.4s; }
+.float--tr{ top:10%;   right:0; animation-delay:-2.9s; }
+.float--bl{ bottom:11%; left:0;  animation-delay:-5.1s; }
+.float--br{ bottom:9%;  right:0; animation-delay:-4.2s; }
+
+/* The hero has the room to push its two cards past the handset. */
 .float--pr{ top:16%; left:-16%; animation-delay:-1.4s; }
 .float--crew{ bottom:19%; right:-19%; animation-delay:-4.2s; }
 @keyframes bob{ 50%{ translate:0 -11px; } }
 @media (max-width:1180px){ .float--pr{ left:-6%; } .float--crew{ right:-7%; } }
-@media (max-width:520px){ .float{ padding:10px 13px; } .float--pr{ left:-4%; } .float--crew{ right:-4%; } }
+@media (max-width:520px){
+  .float{ padding:10px 13px; }
+  .float--pr{ left:-4%; } .float--crew{ right:-4%; }
+  .float--stat strong{ font-size:1.4rem; }
+  .float__bar{ width:92px; }
+}
 .phone__screen{ position:relative; height:100%; border-radius:34px; overflow:hidden; background:#000; }
 .phone__screen .media{ width:100%; height:100%; object-fit:cover; }
 .phone__glare{
@@ -393,7 +415,7 @@ button{ font:inherit; color:inherit; }
 .bodymap__grid{ display:grid; grid-template-columns:.9fr 1.1fr; gap:clamp(32px,6vw,80px); align-items:center; }
 @media (max-width:900px){ .bodymap__grid{ grid-template-columns:1fr; } }
 
-.bodymap__stage{ position:relative; }
+.bodymap__stage{ position:relative; perspective:var(--persp); }
 .bodymap__figs{
   display:grid; grid-template-columns:1fr 1fr; gap:clamp(8px,2vw,24px);
   padding:clamp(16px,3vw,28px);
