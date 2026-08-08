@@ -1,8 +1,17 @@
-# Client preview — before / after
+# Client preview
 
-One self-contained page comparing the live gymcircle.app landing page with the
-rebuild on this branch. Everything is inlined (both page renders and the display
-font), so it has no build step and makes no external requests.
+Two self-contained pages for sending to a client:
+
+- `index.html` — before / after, drag to wipe between the live page and the rebuild
+- `gallery.html` — every section screen by screen, desktop and phone, click to enlarge
+
+Each links to the other, so one URL reaches both.
+
+## Before / after
+
+Compares the live gymcircle.app landing page with the rebuild on this
+branch. Everything is inlined — page renders, gallery screenshots and the display
+font — so there is no build step and no external request from either page.
 
 ## Deploying it
 
