@@ -32,6 +32,6 @@ auto_rapport_log.json
 !gymcircle-site/robots.txt
 !preview/robots.txt
 
-# Never commit deploy credentials
-.vercel_token
-.vercel/
+# Never commit deploy credentials or local tooling state
+*.token
+.env.local

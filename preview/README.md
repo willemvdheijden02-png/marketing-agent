@@ -13,29 +13,16 @@ Compares the live gymcircle.app landing page with the rebuild on this
 branch. Everything is inlined — page renders, gallery screenshots and the display
 font — so there is no build step and no external request from either page.
 
-## Deploying it
+## Sending them
 
-In Vercel: **Add New → Project → import this repo**, then set
+Neither page needs a host. Each is a single file with the page renders, the
+screenshots and the display font all inlined, and makes no external request, so
+it renders the same opened from disk, attached to an email, or dropped on any
+static host.
 
-- **Root Directory:** `preview`
-- **Framework Preset:** Other
-- **Build Command:** *(leave empty)*
-- **Output Directory:** *(leave empty)*
-
-Deploy. The URL it gives you is the one to send.
-
-Root Directory matters: the repository root also holds `app.py` and other files
-that should not be served publicly, and a root deploy would expose them.
-
-`vercel.json` sets `noindex` — this is a client preview, not something that
-should turn up in search results next to the real site.
-
-## Deploying the rebuilt landing page too
-
-Same flow, second project, **Root Directory: `gymcircle-site`**. Worth doing:
-the five phone screenshots still point at `https://www.gymcircle.app/shots/`,
-which resolves fine from the public internet, so a deployed copy shows the real
-screenshots rather than the placeholder frames in this comparison.
+If you do put them on a host, keep them out of search results — both carry a
+`noindex` meta tag, and an `X-Robots-Tag: noindex` header on top of that does no
+harm.
 
 ## Regenerating
 
