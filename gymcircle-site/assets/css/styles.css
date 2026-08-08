@@ -317,7 +317,7 @@ button{ font:inherit; color:inherit; }
 /* Reserve the frame before the asset arrives: no layout shift while loading,
    and no collapsed hole if one 404s. These ratios assume phone screenshots —
    check them against your real /shots dimensions if you swap assets. */
-.shot .media{ width:100%; height:auto; aspect-ratio:9/19.5; object-fit:cover; object-position:top center; background:#0E0C0B; }
+.shot .media{ width:330px; max-width:100%; height:auto; aspect-ratio:9/19.5; object-fit:cover; object-position:top center; background:#0E0C0B; }
 .shot--card .media{ aspect-ratio:4/5; object-fit:contain; }
 /* Screenshots as slabs standing in the room, not stickers rotated on the
    page. Hovering brings one square to the viewer and pulls it forward. */
@@ -325,12 +325,107 @@ button{ font:inherit; color:inherit; }
 .shot--tilt-l{ transform:rotateY(14deg) rotateZ(-1.4deg); }
 .shot--sm{ max-width:270px; }
 @media (hover:hover){
-  .shot:hover{ transform:rotateY(0) rotateZ(0) translateY(-10px) translateZ(46px); }
+  /* .shot--live opts out: a slab holding real controls must not shift under
+     the pointer on hover, or the thing you aimed at moves before you click. */
+  .shot:not(.shot--live):hover{ transform:rotateY(0) rotateZ(0) translateY(-10px) translateZ(46px); }
 }
 @media (max-width:640px){
   .shot--tilt-r{ transform:rotateY(-8deg) rotateZ(1.4deg); }
   .shot--tilt-l{ transform:rotateY(8deg) rotateZ(-1.4deg); }
 }
+
+/* ---------- Built app screens: the gym map and a gym page -----------------
+   These two were screenshots pointing at gymcircle.app. Built in markup they
+   stay sharp at any size, need no asset to arrive, and the map's filter
+   actually filters. They live in the same .shot slab as everything else. */
+/* A definite width, not 100%: .shot is a shrink-to-fit figure, so a percentage
+   here resolves against a parent that is itself sized by this child, and the
+   screen collapses to nothing. max-width keeps it shrinkable on small screens. */
+.screen{
+  position:relative; width:330px; max-width:100%; aspect-ratio:9/19.5;
+  background:#0E1319; overflow:hidden;
+}
+.screen__svg{ position:absolute; inset:0; width:100%; height:100%; }
+
+.map__chips{
+  position:absolute; top:3%; left:0; right:0; z-index:4;
+  display:flex; justify-content:center; gap:5px; padding-inline:8px;
+}
+.map__chip{
+  background:rgba(10,12,16,.84); border:1px solid var(--line-2); color:var(--body);
+  border-radius:999px; padding:5px 10px; font-size:.62rem; letter-spacing:.02em;
+  cursor:pointer; white-space:nowrap; backdrop-filter:blur(6px);
+  transition:background .2s, color .2s, border-color .2s;
+}
+.map__chip.is-on{ background:var(--orange); border-color:var(--orange); color:#fff; font-weight:700; }
+
+.pin{
+  position:absolute; left:var(--x); top:var(--y); z-index:2;
+  translate:-50% -50%; width:26px; height:26px; border-radius:50%;
+  display:grid; place-items:center; font-size:.55rem; font-weight:700;
+  color:var(--ink); background:#1A2029; border:1.5px solid rgba(255,255,255,.26);
+  box-shadow:0 4px 12px rgba(0,0,0,.65);
+  transition:opacity .3s ease, scale .3s cubic-bezier(.2,.7,.3,1);
+}
+.pin--gym{ background:var(--orange); border-color:rgba(255,255,255,.34); color:#fff; font-size:.62rem; }
+.pin--you{
+  width:15px; height:15px; background:#4C9BFF; border:2px solid #fff;
+  box-shadow:0 0 0 6px rgba(76,155,255,.20);
+}
+/* Dimmed rather than removed, so the map keeps its shape as you filter. */
+.map--filtered .pin[data-kind]:not(.is-shown){ opacity:.14; scale:.82; }
+
+.map__callout{
+  position:absolute; left:var(--x); top:var(--y); translate:-50% -50%; z-index:3;
+  background:#0B0E13; border:1px solid var(--line-2); border-radius:8px;
+  padding:4px 8px; font-size:.6rem; color:var(--ink); white-space:nowrap;
+  box-shadow:0 6px 18px rgba(0,0,0,.7);
+}
+.map__locate{
+  position:absolute; right:8px; bottom:8px; z-index:3; width:26px; height:26px;
+  border-radius:50%; background:rgba(10,12,16,.86); border:1px solid var(--line-2);
+  display:grid; place-items:center; color:var(--body);
+}
+
+.gym__hero{ position:relative; height:30%; }
+.gym__hero svg{ position:absolute; inset:0; width:100%; height:100%; }
+.gym__back{
+  position:absolute; top:9px; left:9px; z-index:2; width:22px; height:22px; border-radius:50%;
+  background:rgba(10,12,16,.7); border:1px solid var(--line-2); display:grid; place-items:center;
+  color:var(--ink); font-size:.7rem;
+}
+.gym__body{ padding:11px 12px; }
+.gym__name{ margin:0; font-size:.96rem; font-weight:700; color:var(--ink); line-height:1.18; }
+.gym__sub{ margin:3px 0 0; font-size:.66rem; color:var(--dim); }
+.gym__pill{
+  display:inline-block; margin-top:9px; background:var(--orange); color:#fff;
+  font-size:.58rem; font-weight:700; padding:4px 9px; border-radius:999px; letter-spacing:.02em;
+}
+.gym__grid{ display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:11px; }
+.gym__stat{ background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:9px; }
+.gym__stat b{ display:block; font-family:var(--font-display); font-size:1.3rem; color:var(--ink); line-height:1; }
+.gym__stat span{ font-size:.52rem; letter-spacing:.09em; text-transform:uppercase; color:var(--dim); }
+.gym__ico{
+  width:16px; height:16px; border-radius:5px; margin-bottom:7px;
+  background:rgba(255,77,15,.16); color:var(--orange);
+  display:grid; place-items:center; font-size:.58rem;
+}
+.gym__label{
+  margin:13px 0 7px; font-size:.52rem; letter-spacing:.11em;
+  text-transform:uppercase; color:var(--dim);
+}
+.gym__crew{ display:flex; gap:5px; }
+.gym__av{
+  width:26px; height:26px; border-radius:50%; display:grid; place-items:center;
+  font-size:.55rem; font-weight:700; color:var(--ink);
+  background:var(--surface-2); border:1px solid var(--line-2);
+}
+.gym__av--more{ color:var(--dim); }
+.gym__pr{
+  display:flex; justify-content:space-between; align-items:baseline; gap:10px;
+  padding:7px 0; border-top:1px solid var(--line); font-size:.66rem; color:var(--dim);
+}
+.gym__pr b{ color:var(--ink); font-weight:600; }
 
 .pull{
   margin:0; padding:20px 24px; border-left:3px solid var(--orange);

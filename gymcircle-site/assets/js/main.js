@@ -217,6 +217,32 @@ document.querySelectorAll('.acc__btn').forEach((btn) => {
   addEventListener('keydown', (e) => { if (e.key === 'Escape' && !modal.hidden) close(); });
 })();
 
+/* ---------- 8b. Gym map filter -------------------------------------------
+   The map is correct with JavaScript off — every pin renders. This only adds
+   the three chips, which dim the pins they exclude rather than removing them,
+   so the map keeps its shape while you switch.
+   -------------------------------------------------------------------------- */
+(() => {
+  const map = document.querySelector('.js-map');
+  if (!map) return;
+  const chips = [...map.querySelectorAll('.map__chip')];
+  const pins = [...map.querySelectorAll('.pin[data-kind]')];
+
+  const apply = (filter) => {
+    map.classList.toggle('map--filtered', filter !== 'all');
+    for (const p of pins) p.classList.toggle('is-shown', filter === 'all' || p.dataset.kind === filter);
+    for (const c of chips) c.classList.toggle('is-on', c.dataset.filter === filter);
+  };
+
+  for (const chip of chips) {
+    chip.addEventListener('click', () => {
+      apply(chip.dataset.filter);
+      track('gymmap_filter', { filter: chip.dataset.filter });
+    });
+  }
+  apply('all');
+})();
+
 /* ---------- 9. The recovery body map -------------------------------------
    The map itself is inline SVG with the recovery state baked into its
    classes, so it renders correctly with JavaScript off. This only adds the
