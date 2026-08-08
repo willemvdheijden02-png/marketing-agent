@@ -1,0 +1,674 @@
+/* ==========================================================================
+   GymCircle — landing page
+   Design language kept from the live site (near-black + orange + condensed
+   display type). What changed is legibility, hierarchy and proof.
+   Every body-text colour below clears WCAG AA on its own background.
+   ========================================================================== */
+
+/* Display face, self-hosted (19KB latin subset). No Google Fonts request:
+   faster, and no third-party call from an EU-facing page.
+   Swap in GymCircle's own licensed condensed face here if there is one — the
+   rest of the stylesheet only ever refers to --font-display. */
+@font-face{
+  font-family:'Anton'; font-style:normal; font-weight:400; font-display:swap;
+  src:url('../fonts/anton-latin-400-normal.woff2') format('woff2');
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,
+    U+0304,U+0308,U+0329,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,
+    U+2215,U+FEFF,U+FFFD;
+}
+@font-face{
+  font-family:'Anton'; font-style:normal; font-weight:400; font-display:swap;
+  src:url('../fonts/anton-latin-ext-400-normal.woff2') format('woff2');
+  unicode-range:U+0100-02AF,U+0304,U+0308,U+0329,U+1E00-1E9F,U+1EF2-1EFF,
+    U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+
+:root{
+  /* Surfaces */
+  --bg:        #0B0A09;
+  --bg-2:      #100E0D;
+  --surface:   #191614;
+  --surface-2: #221D1A;
+  --line:      rgba(255,255,255,.09);
+  --line-2:    rgba(255,255,255,.16);
+
+  /* Text — contrast ratios on --bg noted, all AA or better */
+  --ink:  #F5F0E9;  /* 17.4:1 */
+  --body: #C4BCB2;  /* 10.4:1  — was ~4.0:1 on the old page */
+  --dim:  #9A9188;  /*  6.1:1  — meta only */
+
+  /* Brand */
+  --orange:   #FF4D0F;
+  --orange-2: #FF7A3C;
+  --ready:    #3AD8A4;
+
+  /* System */
+  --r-sm: 10px; --r: 16px; --r-lg: 24px; --r-xl: 32px;
+  --gut: clamp(20px, 5vw, 64px);
+  --sec: clamp(72px, 11vw, 152px);
+
+  /* Depth. One perspective for the whole page so the hero phone, the orbit
+     and the screenshot slabs all read as objects in the same room rather
+     than three unrelated tricks. */
+  --persp: 1200px;
+
+  --font-display: 'Anton', 'Oswald', 'Haettenschweiler', 'Arial Narrow Bold',
+                  Impact, 'Franklin Gothic Bold', sans-serif;
+  --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto,
+               Helvetica, Arial, sans-serif;
+}
+
+*,*::before,*::after{ box-sizing:border-box; }
+html{ -webkit-text-size-adjust:100%; scroll-behavior:smooth; }
+body{
+  margin:0; background:var(--bg); color:var(--body);
+  font-family:var(--font-body); font-size:17px; line-height:1.65;
+  -webkit-font-smoothing:antialiased; overflow-x:hidden;
+}
+img,video,svg{ max-width:100%; display:block; }
+a{ color:inherit; }
+button{ font:inherit; color:inherit; }
+
+@media (prefers-reduced-motion: reduce){
+  html{ scroll-behavior:auto; }
+  *,*::before,*::after{ animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; }
+}
+
+.skip-link{
+  position:absolute; left:-9999px; top:0; z-index:200;
+  background:var(--orange); color:#fff; padding:12px 20px; border-radius:0 0 var(--r-sm) 0;
+}
+.skip-link:focus{ left:0; }
+
+:focus-visible{ outline:2px solid var(--orange-2); outline-offset:3px; border-radius:4px; }
+
+/* ---------- Layout ---------- */
+.wrap{ width:100%; max-width:1240px; margin-inline:auto; padding-inline:var(--gut); }
+.wrap--narrow{ max-width:820px; }
+.center{ text-align:center; }
+.narrow{ max-width:660px; margin-inline:auto; }
+
+/* ---------- Type ---------- */
+.display{
+  font-family:var(--font-display); font-weight:400;
+  text-transform:uppercase; letter-spacing:.01em; line-height:.92;
+  color:var(--ink); margin:0 0 .4em;
+  font-size:clamp(2.4rem, 6vw, 4rem);
+}
+.display--lg{ font-size:clamp(2.8rem, 8vw, 5.4rem); }
+.display--xl{ font-size:clamp(3.2rem, 9.5vw, 6.6rem); }
+.display em{ font-style:normal; color:var(--orange); }
+
+/* margin-block, not the `margin` shorthand: the shorthand would also set
+   margin-inline:0 and — being declared later than .narrow — would silently
+   beat its margin-inline:auto, pushing centred ledes off-axis. */
+.lede{ font-size:clamp(1.05rem, 1.7vw, 1.28rem); line-height:1.6; color:var(--body); max-width:56ch; margin-block:0 2rem; }
+.body{ font-size:1.05rem; color:var(--body); max-width:52ch; margin-block:0 1.5rem; }
+.small{ font-size:.9rem; }
+.dim{ color:var(--dim); }
+
+.eyebrow{
+  display:inline-flex; align-items:center; gap:10px;
+  font-size:.78rem; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--body); background:var(--surface); border:1px solid var(--line);
+  padding:7px 16px 7px 7px; border-radius:999px; margin:0 0 1.6rem;
+}
+.eyebrow__tag{ background:var(--orange); color:#fff; font-weight:700; padding:3px 9px; border-radius:999px; font-size:.7rem; }
+
+.step{
+  font-family:var(--font-display); color:var(--orange);
+  font-size:1rem; letter-spacing:.18em; margin:0 0 .7rem;
+}
+.step--center{ text-align:center; }
+
+/* ---------- Buttons ---------- */
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  border:1px solid transparent; border-radius:999px; cursor:pointer;
+  padding:12px 24px; font-weight:650; text-decoration:none;
+  transition:transform .18s ease, background .18s ease, border-color .18s ease;
+}
+.btn--primary{ background:var(--orange); color:#fff; }
+.btn--primary:hover{ background:var(--orange-2); transform:translateY(-1px); }
+.btn--sm{ padding:9px 18px; font-size:.92rem; }
+
+.store-btn{
+  display:inline-flex; align-items:center; gap:12px; text-decoration:none;
+  background:var(--ink); color:#12100F;
+  padding:12px 22px; border-radius:14px; min-height:56px;
+  transition:transform .18s ease, box-shadow .18s ease;
+}
+.store-btn:hover{ transform:translateY(-2px); box-shadow:0 14px 30px rgba(0,0,0,.5); }
+.store-btn__icon{ width:26px; height:26px; flex:none; }
+.store-btn span{ display:flex; flex-direction:column; line-height:1.15; text-align:left; }
+.store-btn small{ font-size:.68rem; letter-spacing:.04em; text-transform:uppercase; opacity:.7; }
+.store-btn strong{ font-size:1.06rem; font-weight:700; }
+.store-btn--sm{ padding:10px 18px; min-height:44px; }
+
+.cta-row{ display:flex; flex-wrap:wrap; gap:14px; margin-bottom:1.8rem; }
+.cta-row--center{ justify-content:center; }
+
+.link-arrow{
+  background:none; border:0; padding:0; cursor:pointer;
+  color:var(--orange-2); font-weight:600; text-decoration:none;
+  border-bottom:1px solid transparent; transition:border-color .2s;
+}
+.link-arrow:hover{ border-bottom-color:var(--orange-2); }
+
+/* ---------- Nav ---------- */
+.nav{
+  position:sticky; top:0; z-index:60;
+  background:color-mix(in srgb, var(--bg) 82%, transparent);
+  backdrop-filter:blur(14px); border-bottom:1px solid transparent;
+  transition:border-color .25s, background .25s;
+}
+.nav.is-stuck{ border-bottom-color:var(--line); background:color-mix(in srgb, var(--bg) 94%, transparent); }
+.nav__inner{ display:flex; align-items:center; gap:24px; height:72px; }
+.brand{ display:flex; align-items:center; gap:10px; text-decoration:none; margin-right:auto; }
+.brand__mark{
+  width:22px; height:22px; border-radius:50%;
+  background:radial-gradient(circle at 32% 30%, var(--orange-2), var(--orange) 55%, #B32E00);
+  box-shadow:0 0 0 3px rgba(255,77,15,.18);
+}
+.brand__word{ font-family:var(--font-display); letter-spacing:.06em; color:var(--ink); font-size:1.1rem; }
+.nav__links{ display:flex; gap:26px; }
+.nav__links a{ color:var(--body); text-decoration:none; font-size:.95rem; transition:color .18s; }
+.nav__links a:hover{ color:var(--ink); }
+@media (max-width:860px){ .nav__links{ display:none; } }
+
+/* ---------- Hero ---------- */
+.hero{ position:relative; padding:clamp(48px,7vw,92px) 0 0; overflow:hidden; }
+.hero__glow{
+  position:absolute; inset:-20% -10% auto; height:70vh; pointer-events:none;
+  background:radial-gradient(60% 55% at 68% 30%, rgba(255,77,15,.20), transparent 70%);
+  filter:blur(20px);
+}
+.hero__inner{
+  position:relative; display:grid; gap:clamp(32px,5vw,64px);
+  grid-template-columns:1.05fr .95fr; align-items:center;
+  padding-bottom:clamp(48px,7vw,90px);
+}
+@media (max-width:980px){ .hero__inner{ grid-template-columns:1fr; } }
+
+.trust{ display:flex; flex-wrap:wrap; gap:8px 26px; list-style:none; padding:0; margin:0; color:var(--dim); font-size:.93rem; }
+.trust strong{ color:var(--ink); }
+
+/* QR — the desktop conversion path the old page did not have */
+.qr-inline{
+  display:flex; align-items:center; gap:16px; margin:0 0 1.6rem;
+  background:var(--surface); border:1px solid var(--line);
+  border-radius:var(--r); padding:14px 20px 14px 14px; width:max-content; max-width:100%;
+}
+.qr-inline__code{ width:88px; height:88px; flex:none; background:#fff; border-radius:10px; padding:7px; }
+.qr-inline__code canvas,.qr-inline__code svg{ width:100%; height:100%; display:block; }
+.qr-inline__text{ margin:0; font-size:.95rem; line-height:1.5; color:var(--body); }
+.qr-inline__text strong{ color:var(--ink); }
+@media (max-width:980px){ .qr-inline{ display:none; } }  /* pointless on a phone */
+
+/* Phone mockup */
+.hero__media{ display:flex; justify-content:center; perspective:var(--persp); }
+/* The scene, not just the phone: two UI cards sit in front of the handset at
+   different Z, so the pointer parallax separates them instead of sliding one
+   flat rectangle around. */
+.scene{ position:relative; transform-style:preserve-3d; }
+.phone{
+  position:relative; width:min(330px, 78vw); aspect-ratio:9/19.2;
+  border-radius:44px; padding:11px; background:linear-gradient(160deg,#2C2724,#0D0B0A 60%);
+  box-shadow:0 40px 90px rgba(0,0,0,.65), 0 0 0 1px rgba(255,255,255,.07);
+  transform:rotateY(-14deg) rotateX(4deg) rotateZ(1deg);
+  transition:transform .5s cubic-bezier(.2,.7,.3,1);
+  transform-style:preserve-3d;
+  will-change:transform;
+}
+.float{
+  /* translateZ, not z-index: inside a preserve-3d parent the browser sorts by
+     Z position and ignores z-index, which puts the card behind the handset. */
+  position:absolute; transform:translateZ(70px); display:flex; align-items:center; gap:11px;
+  padding:12px 16px; border-radius:var(--r);
+  background:color-mix(in srgb, var(--surface-2) 88%, transparent);
+  border:1px solid var(--line-2);
+  box-shadow:0 22px 48px rgba(0,0,0,.62);
+  backdrop-filter:blur(9px);
+  animation:bob 7s ease-in-out infinite;
+  will-change:transform;
+}
+.float__dot{ width:9px; height:9px; border-radius:50%; flex:none; }
+.float__dot--pr{ background:var(--orange); box-shadow:0 0 12px rgba(255,77,15,.85); }
+.float__dot--ready{ background:var(--ready); box-shadow:0 0 12px rgba(58,216,164,.8); }
+.float strong{ display:block; font-family:var(--font-display); letter-spacing:.03em;
+  text-transform:uppercase; color:var(--ink); font-size:1.02rem; line-height:1.1; }
+.float span{ font-size:.76rem; color:var(--dim); letter-spacing:.04em; text-transform:uppercase; }
+/* Card variants. The numbers in these are the app's own screens, so the page
+   shows the product rather than describing it. */
+.float--stat strong{ font-size:1.7rem; letter-spacing:.02em; }
+.float--ready strong{ color:var(--ready); }
+.float__bar{ display:block; width:116px; height:5px; margin:8px 0 5px; border-radius:999px;
+  background:var(--line-2); overflow:hidden; }
+.float__bar i{ display:block; height:100%; width:var(--p); border-radius:999px;
+  background:linear-gradient(90deg, var(--orange), var(--orange-2)); }
+
+/* Placement. A feature column is wider than the screenshot it centres, so
+   0 tucks a card against the slab's edge rather than out into the gutter. */
+.float--tl{ top:7%;    left:0;  animation-delay:-1.4s; }
+.float--tr{ top:10%;   right:0; animation-delay:-2.9s; }
+.float--bl{ bottom:11%; left:0;  animation-delay:-5.1s; }
+.float--br{ bottom:9%;  right:0; animation-delay:-4.2s; }
+
+/* The hero has the room to push its two cards past the handset. */
+.float--pr{ top:16%; left:-16%; animation-delay:-1.4s; }
+.float--crew{ bottom:19%; right:-19%; animation-delay:-4.2s; }
+@keyframes bob{ 50%{ translate:0 -11px; } }
+@media (max-width:1180px){ .float--pr{ left:-6%; } .float--crew{ right:-7%; } }
+@media (max-width:520px){
+  .float{ padding:10px 13px; }
+  .float--pr{ left:-4%; } .float--crew{ right:-4%; }
+  .float--stat strong{ font-size:1.4rem; }
+  .float__bar{ width:92px; }
+}
+.phone__screen{ position:relative; height:100%; border-radius:34px; overflow:hidden; background:#000; }
+.phone__screen .media{ width:100%; height:100%; object-fit:cover; }
+.phone__glare{
+  position:absolute; inset:11px; border-radius:34px; pointer-events:none;
+  background:linear-gradient(115deg, rgba(255,255,255,.14) 0%, rgba(255,255,255,0) 38%);
+}
+@media (hover:hover) and (min-width:981px){
+  .phone:hover{ transform:rotateY(-6deg) rotateX(2deg) translateY(-6px); }
+}
+
+/* Marquee */
+.marquee{ border-block:1px solid var(--line); background:var(--bg-2); overflow:hidden; padding:14px 0; }
+.marquee__track{
+  display:flex; align-items:center; gap:22px; width:max-content;
+  animation:slide 42s linear infinite;
+  font-family:var(--font-display); text-transform:uppercase;
+  letter-spacing:.1em; color:var(--dim); font-size:.94rem; white-space:nowrap;
+}
+.marquee__track i{ color:var(--orange); font-style:normal; }
+@keyframes slide{ to{ transform:translateX(-50%); } }
+
+/* ---------- Feature sections ---------- */
+.feature{ padding:var(--sec) 0; }
+.feature--alt{ background:var(--bg-2); border-block:1px solid var(--line); }
+.feature__grid{
+  display:grid; grid-template-columns:1fr 1fr; gap:clamp(32px,6vw,88px); align-items:center;
+}
+.feature__grid--rev .feature__copy{ order:2; }
+@media (max-width:900px){
+  .feature__grid{ grid-template-columns:1fr; }
+  .feature__grid--rev .feature__copy{ order:0; }
+}
+.feature__media{ position:relative; display:flex; justify-content:center; gap:20px; flex-wrap:wrap; perspective:var(--persp); }
+
+.ticks{ list-style:none; padding:0; margin:0; display:grid; gap:10px; }
+.ticks li{ position:relative; padding-left:28px; color:var(--body); }
+.ticks li::before{
+  content:""; position:absolute; left:0; top:.55em;
+  width:12px; height:12px; border-radius:50%;
+  background:var(--orange); box-shadow:0 0 0 4px rgba(255,77,15,.16);
+}
+
+/* Screenshot frames — real product, not CSS re-creations */
+.shot{
+  margin:0; border-radius:var(--r-lg); overflow:hidden;
+  background:var(--surface); border:1px solid var(--line-2);
+  box-shadow:0 30px 70px rgba(0,0,0,.55);
+  max-width:330px; transition:transform .5s cubic-bezier(.2,.7,.3,1);
+}
+/* Reserve the frame before the asset arrives: no layout shift while loading,
+   and no collapsed hole if one 404s. These ratios assume phone screenshots —
+   check them against your real /shots dimensions if you swap assets. */
+.shot .media{ width:330px; max-width:100%; height:auto; aspect-ratio:9/19.5; object-fit:cover; object-position:top center; background:#0E0C0B; }
+.shot--card .media{ aspect-ratio:4/5; object-fit:contain; }
+/* Screenshots as slabs standing in the room, not stickers rotated on the
+   page. Hovering brings one square to the viewer and pulls it forward. */
+.shot--tilt-r{ transform:rotateY(-14deg) rotateZ(1.4deg); }
+.shot--tilt-l{ transform:rotateY(14deg) rotateZ(-1.4deg); }
+.shot--sm{ max-width:270px; }
+@media (hover:hover){
+  /* .shot--live opts out: a slab holding real controls must not shift under
+     the pointer on hover, or the thing you aimed at moves before you click. */
+  .shot:not(.shot--live):hover{ transform:rotateY(0) rotateZ(0) translateY(-10px) translateZ(46px); }
+}
+@media (max-width:640px){
+  .shot--tilt-r{ transform:rotateY(-8deg) rotateZ(1.4deg); }
+  .shot--tilt-l{ transform:rotateY(8deg) rotateZ(-1.4deg); }
+}
+
+/* ---------- Built app screens: the gym map and a gym page -----------------
+   These two were screenshots pointing at gymcircle.app. Built in markup they
+   stay sharp at any size, need no asset to arrive, and the map's filter
+   actually filters. They live in the same .shot slab as everything else. */
+/* A definite width, not 100%: .shot is a shrink-to-fit figure, so a percentage
+   here resolves against a parent that is itself sized by this child, and the
+   screen collapses to nothing. max-width keeps it shrinkable on small screens. */
+.screen{
+  position:relative; width:330px; max-width:100%; aspect-ratio:9/19.5;
+  background:#0E1319; overflow:hidden;
+}
+.screen__svg{ position:absolute; inset:0; width:100%; height:100%; }
+
+.map__chips{
+  position:absolute; top:3%; left:0; right:0; z-index:4;
+  display:flex; justify-content:center; gap:5px; padding-inline:8px;
+}
+.map__chip{
+  background:rgba(10,12,16,.84); border:1px solid var(--line-2); color:var(--body);
+  border-radius:999px; padding:5px 10px; font-size:.62rem; letter-spacing:.02em;
+  cursor:pointer; white-space:nowrap; backdrop-filter:blur(6px);
+  transition:background .2s, color .2s, border-color .2s;
+}
+.map__chip.is-on{ background:var(--orange); border-color:var(--orange); color:#fff; font-weight:700; }
+
+.pin{
+  position:absolute; left:var(--x); top:var(--y); z-index:2;
+  translate:-50% -50%; width:26px; height:26px; border-radius:50%;
+  display:grid; place-items:center; font-size:.55rem; font-weight:700;
+  color:var(--ink); background:#1A2029; border:1.5px solid rgba(255,255,255,.26);
+  box-shadow:0 4px 12px rgba(0,0,0,.65);
+  transition:opacity .3s ease, scale .3s cubic-bezier(.2,.7,.3,1);
+}
+.pin--gym{ background:var(--orange); border-color:rgba(255,255,255,.34); color:#fff; font-size:.62rem; }
+.pin--you{
+  width:15px; height:15px; background:#4C9BFF; border:2px solid #fff;
+  box-shadow:0 0 0 6px rgba(76,155,255,.20);
+}
+/* Dimmed rather than removed, so the map keeps its shape as you filter. */
+.map--filtered .pin[data-kind]:not(.is-shown){ opacity:.14; scale:.82; }
+
+.map__callout{
+  position:absolute; left:var(--x); top:var(--y); translate:-50% -50%; z-index:3;
+  background:#0B0E13; border:1px solid var(--line-2); border-radius:8px;
+  padding:4px 8px; font-size:.6rem; color:var(--ink); white-space:nowrap;
+  box-shadow:0 6px 18px rgba(0,0,0,.7);
+}
+.map__locate{
+  position:absolute; right:8px; bottom:8px; z-index:3; width:26px; height:26px;
+  border-radius:50%; background:rgba(10,12,16,.86); border:1px solid var(--line-2);
+  display:grid; place-items:center; color:var(--body);
+}
+
+.gym__hero{ position:relative; height:30%; }
+.gym__hero svg{ position:absolute; inset:0; width:100%; height:100%; }
+.gym__back{
+  position:absolute; top:9px; left:9px; z-index:2; width:22px; height:22px; border-radius:50%;
+  background:rgba(10,12,16,.7); border:1px solid var(--line-2); display:grid; place-items:center;
+  color:var(--ink); font-size:.7rem;
+}
+.gym__body{ padding:11px 12px; }
+.gym__name{ margin:0; font-size:.96rem; font-weight:700; color:var(--ink); line-height:1.18; }
+.gym__sub{ margin:3px 0 0; font-size:.66rem; color:var(--dim); }
+.gym__pill{
+  display:inline-block; margin-top:9px; background:var(--orange); color:#fff;
+  font-size:.58rem; font-weight:700; padding:4px 9px; border-radius:999px; letter-spacing:.02em;
+}
+.gym__grid{ display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:11px; }
+.gym__stat{ background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:9px; }
+.gym__stat b{ display:block; font-family:var(--font-display); font-size:1.3rem; color:var(--ink); line-height:1; }
+.gym__stat span{ font-size:.52rem; letter-spacing:.09em; text-transform:uppercase; color:var(--dim); }
+.gym__ico{
+  width:16px; height:16px; border-radius:5px; margin-bottom:7px;
+  background:rgba(255,77,15,.16); color:var(--orange);
+  display:grid; place-items:center; font-size:.58rem;
+}
+.gym__label{
+  margin:13px 0 7px; font-size:.52rem; letter-spacing:.11em;
+  text-transform:uppercase; color:var(--dim);
+}
+.gym__crew{ display:flex; gap:5px; }
+.gym__av{
+  width:26px; height:26px; border-radius:50%; display:grid; place-items:center;
+  font-size:.55rem; font-weight:700; color:var(--ink);
+  background:var(--surface-2); border:1px solid var(--line-2);
+}
+.gym__av--more{ color:var(--dim); }
+.gym__pr{
+  display:flex; justify-content:space-between; align-items:baseline; gap:10px;
+  padding:7px 0; border-top:1px solid var(--line); font-size:.66rem; color:var(--dim);
+}
+.gym__pr b{ color:var(--ink); font-weight:600; }
+
+.pull{
+  margin:0; padding:20px 24px; border-left:3px solid var(--orange);
+  background:var(--surface); border-radius:0 var(--r) var(--r) 0; color:var(--ink);
+}
+.pull cite{ display:block; margin-top:10px; font-style:normal; font-size:.86rem; color:var(--dim); }
+
+/* ---------- Third space ---------- */
+.third{ padding:var(--sec) 0; background:
+  radial-gradient(70% 50% at 50% 0%, rgba(255,77,15,.10), transparent 70%), var(--bg); }
+.third__media{ display:flex; justify-content:center; gap:clamp(16px,4vw,48px); flex-wrap:wrap; margin:clamp(32px,5vw,56px) 0; perspective:var(--persp); }
+.third__stats{
+  display:grid; grid-template-columns:repeat(3,1fr); gap:18px;
+  max-width:940px; margin-inline:auto; text-align:center;
+}
+.third__stats div{ background:var(--surface); border:1px solid var(--line); border-radius:var(--r); padding:22px 18px; }
+.third__stats strong{ display:block; font-family:var(--font-display); text-transform:uppercase; color:var(--ink); font-size:1.35rem; letter-spacing:.03em; }
+.third__stats span{ color:var(--dim); font-size:.94rem; }
+@media (max-width:760px){ .third__stats{ grid-template-columns:1fr; } }
+
+/* ---------- Orbit (CSS 3D — makes "circle" literal) ---------- */
+.orbit{
+  position:relative; width:min(340px,80vw); aspect-ratio:1; flex:none;
+  display:grid; place-items:center;
+  /* A real ring in space: the satellites travel around the core on the Z
+     axis, so the far half genuinely recedes behind it. --orbit-r is the
+     ring radius, dropped on small screens so it stays inside the column. */
+  --orbit-r: min(140px, 34vw);
+  --orbit-tilt: 26deg;   /* enough that the path reads as an ellipse, not a row */
+  perspective:760px; transform-style:preserve-3d;
+}
+/* The rings lie in the satellites' own orbital plane (90deg to stand them on
+   edge, less the 13deg the ring is tilted toward the viewer). */
+.orbit__ring,.orbit__ring--2{
+  position:absolute; inset:8%; border-radius:50%;
+  border:1px solid var(--line-2);
+  transform:rotateX(calc(90deg - var(--orbit-tilt)));
+}
+.orbit__ring--2{ inset:22%; border-color:rgba(255,77,15,.28); }
+.orbit__core{
+  position:relative; z-index:2; transform:translateZ(0); width:44%; aspect-ratio:1; border-radius:50%;
+  background:radial-gradient(circle at 35% 30%, var(--surface-2), #0E0C0B 70%);
+  border:1px solid var(--line-2); display:grid; place-content:center; text-align:center;
+  box-shadow:0 20px 50px rgba(0,0,0,.6), inset 0 0 40px rgba(255,77,15,.10);
+}
+.orbit__count{ font-family:var(--font-display); font-size:2.6rem; color:var(--orange); line-height:1; }
+.orbit__label{ font-size:.72rem; letter-spacing:.06em; text-transform:uppercase; color:var(--dim); }
+.orbit__sats{
+  position:absolute; inset:0; transform-style:preserve-3d;
+  animation:orbit-spin 26s linear infinite;
+}
+.sat{
+  position:absolute; top:50%; left:50%; width:46px; height:46px; margin:-23px;
+  border-radius:50%; display:grid; place-items:center;
+  font-size:.78rem; font-weight:700; letter-spacing:.03em;
+  background:var(--surface-2); color:var(--dim);
+  border:1px solid var(--line-2);
+  /* Placed on the ring, then counter-rotated every frame so the initials
+     stay square to the viewer instead of turning edge-on. */
+  animation:sat-face 26s linear infinite;
+}
+.sat--on{ color:var(--ink); border-color:var(--orange); box-shadow:0 0 0 4px rgba(255,77,15,.14); }
+@keyframes orbit-spin{
+  from{ transform:rotateX(calc(var(--orbit-tilt) * -1)) rotateY(0deg); }
+  to  { transform:rotateX(calc(var(--orbit-tilt) * -1)) rotateY(360deg); }
+}
+/* Undo the parent's Y spin and its X tilt, so the initials stay square to the
+   viewer while the ring itself keeps turning underneath them. */
+@keyframes sat-face{
+  from{ transform:rotateY(calc(var(--i) * 60deg)) translateZ(var(--orbit-r)) rotateY(calc(var(--i) * -60deg)) rotateX(var(--orbit-tilt)); }
+  to  { transform:rotateY(calc(var(--i) * 60deg)) translateZ(var(--orbit-r)) rotateY(calc(var(--i) * -60deg - 360deg)) rotateX(var(--orbit-tilt)); }
+}
+/* Kept on phones now that it fits — it is the clearest thing on the page. */
+@media (max-width:900px){ .orbit{ --orbit-r:min(118px,31vw); width:min(260px,74vw); } }
+@media (prefers-reduced-motion:reduce){
+  .orbit__sats{ animation:none; transform:rotateX(calc(var(--orbit-tilt) * -1)); }
+  .sat{ animation:none; transform:rotateY(calc(var(--i) * 60deg)) translateZ(var(--orbit-r)) rotateY(calc(var(--i) * -60deg)) rotateX(var(--orbit-tilt)); }
+}
+
+/* ---------- Recovery body map ---------- */
+.bodymap{ padding:var(--sec) 0; background:var(--bg-2); border-block:1px solid var(--line); }
+.bodymap__grid{ display:grid; grid-template-columns:.9fr 1.1fr; gap:clamp(32px,6vw,80px); align-items:center; }
+@media (max-width:900px){ .bodymap__grid{ grid-template-columns:1fr; } }
+
+.bodymap__stage{ position:relative; perspective:var(--persp); }
+.bodymap__figs{
+  display:grid; grid-template-columns:1fr 1fr; gap:clamp(8px,2vw,24px);
+  padding:clamp(16px,3vw,28px);
+  border:1px solid var(--line-2); border-radius:var(--r-lg);
+  background:
+    radial-gradient(60% 60% at 50% 30%, rgba(255,77,15,.09), transparent 70%),
+    linear-gradient(180deg, #17130F, #0B0A09);
+}
+.bodyfig{ margin:0; display:flex; flex-direction:column; align-items:center; gap:10px; }
+.bodyfig svg{ width:100%; height:auto; max-height:min(60vh,520px); display:block; overflow:visible; }
+.bodyfig figcaption{
+  font-size:.76rem; letter-spacing:.14em; text-transform:uppercase; color:var(--dim);
+}
+
+/* Anatomical figure. Body mass sits under the tracked muscle groups.
+   Muscle geometry: react-native-body-highlighter (MIT, © 2022 ELABBASSI
+   Hicham) — see assets/vendor/body-highlighter-LICENSE.txt. Rendered here as
+   static SVG, so none of the library ships. */
+.bm-silhouette{ fill:#2A2521; stroke:#2A2521; stroke-width:8; stroke-linejoin:round; }
+.bm-base{ fill:#3E3630; }
+.m{
+  fill:var(--ready);
+  stroke:rgba(11,10,9,.5); stroke-width:1.5;
+  cursor:pointer;
+  transition:fill .18s ease, opacity .18s ease;
+}
+.m--worked{ fill:var(--orange); }
+.m:hover{ opacity:.82; }
+/* Selected group reads as selected on BOTH figures at once, which is the
+   point of showing front and back together. */
+.m.is-active{ stroke:var(--ink); stroke-width:2.4; }
+.bodymap__figs.has-selection .m:not(.is-active){ opacity:.34; }
+
+@media (prefers-reduced-motion:reduce){ .m{ transition:none; } }
+
+.bodymap__readout{
+  display:flex; align-items:center; justify-content:space-between; gap:16px;
+  flex-wrap:wrap; margin-top:18px;
+  background:var(--surface); border:1px solid var(--line); border-radius:var(--r); padding:16px 20px;
+}
+.bodymap__pick{ margin:0; color:var(--ink); font-weight:600; }
+
+.legend{ list-style:none; display:flex; gap:22px; padding:0; margin:0 0 1.4rem; font-size:.94rem; color:var(--body); }
+.legend .dot{ display:inline-block; width:11px; height:11px; border-radius:50%; margin-right:7px; }
+.dot--ready{ background:var(--ready); box-shadow:0 0 10px rgba(58,216,164,.6); }
+.dot--worked{ background:var(--orange); box-shadow:0 0 10px rgba(255,77,15,.6); }
+
+.muscle-list{ list-style:none; display:flex; flex-wrap:wrap; gap:8px; padding:0; margin:0 0 1.2rem; }
+.muscle-list button{
+  background:var(--surface); border:1px solid var(--line-2); color:var(--body);
+  padding:8px 16px; border-radius:999px; cursor:pointer; font-size:.92rem;
+  transition:all .18s ease;
+}
+.muscle-list button:hover,.muscle-list button.is-active{
+  border-color:var(--orange); color:var(--ink); background:var(--surface-2);
+}
+
+/* ---------- Proof ---------- */
+.proof{ padding:clamp(48px,7vw,88px) 0; }
+.proof__bar{
+  display:grid; grid-template-columns:repeat(4,1fr); gap:1px;
+  background:var(--line); border:1px solid var(--line); border-radius:var(--r-lg); overflow:hidden;
+}
+.proof__bar div{ background:var(--bg); padding:28px 20px; text-align:center; }
+.proof__bar strong{ display:block; font-family:var(--font-display); font-size:1.9rem; color:var(--ink); letter-spacing:.02em; }
+.proof__bar span{ color:var(--dim); font-size:.9rem; }
+@media (max-width:760px){ .proof__bar{ grid-template-columns:repeat(2,1fr); } }
+
+.proof__reviews{ display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:18px; margin-top:22px; perspective:var(--persp); }
+/* Marks a block whose contents are placeholders. Only ever rendered when
+   something other than real App Store reviews is in REVIEWS. */
+.proof__sample{
+  display:flex; align-items:center; gap:10px; margin:26px 0 0;
+  border:1px dashed rgba(255,77,15,.5); border-radius:var(--r-sm);
+  padding:10px 14px; color:var(--dim); font-size:.86rem;
+}
+.proof__sample b{ color:var(--orange); text-transform:uppercase; letter-spacing:.08em; font-size:.76rem; }
+.review{
+  background:var(--surface); border:1px solid var(--line); border-radius:var(--r); padding:22px;
+  transform:rotateY(7deg); transform-origin:left center;
+  transition:transform .45s cubic-bezier(.2,.7,.3,1), border-color .45s;
+}
+.review:nth-child(even){ transform:rotateY(-7deg); transform-origin:right center; }
+@media (hover:hover){
+  .review:hover,.review:nth-child(even):hover{ transform:rotateY(0) translateZ(34px); border-color:var(--line-2); }
+}
+.review__stars{ color:var(--orange); letter-spacing:.1em; margin-bottom:8px; }
+.review p{ margin:0 0 12px; color:var(--body); }
+.review cite{ font-style:normal; font-size:.86rem; color:var(--dim); }
+
+/* ---------- FAQ ---------- */
+.faq{ padding:var(--sec) 0; background:var(--bg-2); border-block:1px solid var(--line); }
+.acc__item{ border-bottom:1px solid var(--line); }
+.acc__item h3{ margin:0; font-size:inherit; font-weight:inherit; }
+.acc__btn{
+  width:100%; display:flex; align-items:center; justify-content:space-between; gap:16px;
+  background:none; border:0; padding:22px 4px; cursor:pointer; text-align:left;
+  color:var(--ink); font-size:1.06rem; font-weight:600;
+}
+.acc__icon{ position:relative; width:16px; height:16px; flex:none; }
+.acc__icon::before,.acc__icon::after{
+  content:""; position:absolute; inset:50% 0 auto; height:2px; background:var(--orange);
+  transform:translateY(-50%); transition:transform .25s ease;
+}
+.acc__icon::after{ transform:translateY(-50%) rotate(90deg); }
+.acc__btn[aria-expanded="true"] .acc__icon::after{ transform:translateY(-50%) rotate(0); }
+.acc__panel{ display:grid; grid-template-rows:0fr; transition:grid-template-rows .28s ease; }
+.acc__panel > p{ overflow:hidden; margin:0; padding:0 4px; color:var(--body); }
+.acc__item.is-open .acc__panel{ grid-template-rows:1fr; }
+.acc__item.is-open .acc__panel > p{ padding-bottom:22px; }
+
+/* ---------- Founders ---------- */
+.founders{ padding:clamp(56px,8vw,104px) 0; }
+.founders__quote{ margin:0; border-left:3px solid var(--orange); padding-left:26px; }
+.founders__quote p{ margin:0 0 14px; font-size:1.08rem; color:var(--body); }
+.founders__quote cite{ font-style:normal; font-weight:650; color:var(--ink); }
+
+/* ---------- Final CTA ---------- */
+.final{ position:relative; padding:var(--sec) 0; text-align:center; overflow:hidden; border-top:1px solid var(--line); }
+.final__ghost{
+  position:absolute; inset:auto 0 8%; pointer-events:none; user-select:none;
+  font-family:var(--font-display); font-size:clamp(4rem,17vw,13rem); line-height:1;
+  color:transparent; -webkit-text-stroke:1px rgba(255,255,255,.055);
+  letter-spacing:.02em;
+}
+.final__inner{ position:relative; }
+.final .lede{ margin-inline:auto; }
+
+/* ---------- Footer ---------- */
+.foot{ border-top:1px solid var(--line); padding:36px 0; background:var(--bg-2); }
+.foot__inner{ display:flex; align-items:center; gap:20px; flex-wrap:wrap; }
+.foot__links{ display:flex; gap:20px; flex-wrap:wrap; margin-left:auto; }
+.foot__links a{ color:var(--dim); text-decoration:none; font-size:.92rem; }
+.foot__links a:hover{ color:var(--ink); }
+.foot__copy{ width:100%; margin:0; color:var(--dim); font-size:.84rem; letter-spacing:.06em; }
+
+/* ---------- QR modal ---------- */
+.modal{ position:fixed; inset:0; z-index:100; display:grid; place-items:center; padding:20px; }
+.modal[hidden]{ display:none; }
+.modal__backdrop{ position:absolute; inset:0; background:rgba(0,0,0,.72); backdrop-filter:blur(6px); }
+.modal__card{
+  position:relative; background:var(--surface); border:1px solid var(--line-2);
+  border-radius:var(--r-xl); padding:34px 32px; max-width:420px; width:100%; text-align:center;
+  box-shadow:0 40px 90px rgba(0,0,0,.7);
+}
+.modal__card .display{ font-size:2rem; }
+.modal__x{ position:absolute; top:12px; right:16px; background:none; border:0; font-size:1.9rem; line-height:1; color:var(--dim); cursor:pointer; }
+.modal__qr{ width:210px; height:210px; margin:22px auto; background:#fff; border-radius:14px; padding:12px; }
+.modal__qr canvas,.modal__qr svg{ width:100%; height:100%; display:block; }
+
+/* ---------- Scroll reveal ---------- */
+/* Reveal as a hinge rather than a slide: content tips up from its own base
+   into the page's shared perspective. */
+[data-reveal]{
+  opacity:0;
+  transform:perspective(var(--persp)) translateY(26px) translateZ(-70px) rotateX(8deg);
+  transform-origin:50% 100%;
+  transition:opacity .75s ease, transform .75s cubic-bezier(.2,.7,.3,1);
+}
+[data-reveal].is-in{ opacity:1; transform:perspective(var(--persp)) translateY(0) translateZ(0) rotateX(0); }
+@media (prefers-reduced-motion: reduce){ [data-reveal]{ opacity:1; transform:none; } }

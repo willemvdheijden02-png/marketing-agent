@@ -23,3 +23,15 @@ auto_rapport_log.json
 
 # OS
 .DS_Store
+
+# Licence texts for vendored web assets — the blanket *.txt rule above must
+# not drop them: MIT and OFL both require the notice to ship with the files.
+!gymcircle-site/assets/**/*LICENSE.txt
+
+# Same trap: robots.txt is a shipped part of the site, not a stray note.
+!gymcircle-site/robots.txt
+!preview/robots.txt
+
+# Never commit deploy credentials or local tooling state
+*.token
+.env.local

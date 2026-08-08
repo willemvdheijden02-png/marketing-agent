@@ -1,0 +1,28 @@
+User-agent: *
+Allow: /
+
+# Answer-engine and AI crawlers, listed explicitly. They are already covered by
+# the wildcard above; naming them makes the intent auditable, and gives you one
+# place to switch a crawler off without touching the rule everyone else follows.
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+Sitemap: https://www.gymcircle.app/sitemap.xml
