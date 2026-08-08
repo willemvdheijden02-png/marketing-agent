@@ -47,6 +47,11 @@
   --gut: clamp(20px, 5vw, 64px);
   --sec: clamp(72px, 11vw, 152px);
 
+  /* Depth. One perspective for the whole page so the hero phone, the orbit
+     and the screenshot slabs all read as objects in the same room rather
+     than three unrelated tricks. */
+  --persp: 1200px;
+
   --font-display: 'Anton', 'Oswald', 'Haettenschweiler', 'Arial Narrow Bold',
                   Impact, 'Franklin Gothic Bold', sans-serif;
   --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto,
@@ -201,15 +206,43 @@ button{ font:inherit; color:inherit; }
 @media (max-width:980px){ .qr-inline{ display:none; } }  /* pointless on a phone */
 
 /* Phone mockup */
-.hero__media{ display:flex; justify-content:center; perspective:1400px; }
+.hero__media{ display:flex; justify-content:center; perspective:var(--persp); }
+/* The scene, not just the phone: two UI cards sit in front of the handset at
+   different Z, so the pointer parallax separates them instead of sliding one
+   flat rectangle around. */
+.scene{ position:relative; transform-style:preserve-3d; }
 .phone{
   position:relative; width:min(330px, 78vw); aspect-ratio:9/19.2;
   border-radius:44px; padding:11px; background:linear-gradient(160deg,#2C2724,#0D0B0A 60%);
   box-shadow:0 40px 90px rgba(0,0,0,.65), 0 0 0 1px rgba(255,255,255,.07);
   transform:rotateY(-14deg) rotateX(4deg) rotateZ(1deg);
   transition:transform .5s cubic-bezier(.2,.7,.3,1);
+  transform-style:preserve-3d;
   will-change:transform;
 }
+.float{
+  /* translateZ, not z-index: inside a preserve-3d parent the browser sorts by
+     Z position and ignores z-index, which puts the card behind the handset. */
+  position:absolute; transform:translateZ(70px); display:flex; align-items:center; gap:11px;
+  padding:12px 16px; border-radius:var(--r);
+  background:color-mix(in srgb, var(--surface-2) 88%, transparent);
+  border:1px solid var(--line-2);
+  box-shadow:0 22px 48px rgba(0,0,0,.62);
+  backdrop-filter:blur(9px);
+  animation:bob 7s ease-in-out infinite;
+  will-change:transform;
+}
+.float__dot{ width:9px; height:9px; border-radius:50%; flex:none; }
+.float__dot--pr{ background:var(--orange); box-shadow:0 0 12px rgba(255,77,15,.85); }
+.float__dot--ready{ background:var(--ready); box-shadow:0 0 12px rgba(58,216,164,.8); }
+.float strong{ display:block; font-family:var(--font-display); letter-spacing:.03em;
+  text-transform:uppercase; color:var(--ink); font-size:1.02rem; line-height:1.1; }
+.float span{ font-size:.76rem; color:var(--dim); letter-spacing:.04em; text-transform:uppercase; }
+.float--pr{ top:16%; left:-16%; animation-delay:-1.4s; }
+.float--crew{ bottom:19%; right:-19%; animation-delay:-4.2s; }
+@keyframes bob{ 50%{ translate:0 -11px; } }
+@media (max-width:1180px){ .float--pr{ left:-6%; } .float--crew{ right:-7%; } }
+@media (max-width:520px){ .float{ padding:10px 13px; } .float--pr{ left:-4%; } .float--crew{ right:-4%; } }
 .phone__screen{ position:relative; height:100%; border-radius:34px; overflow:hidden; background:#000; }
 .phone__screen .media{ width:100%; height:100%; object-fit:cover; }
 .phone__glare{
@@ -242,7 +275,7 @@ button{ font:inherit; color:inherit; }
   .feature__grid{ grid-template-columns:1fr; }
   .feature__grid--rev .feature__copy{ order:0; }
 }
-.feature__media{ position:relative; display:flex; justify-content:center; gap:20px; flex-wrap:wrap; }
+.feature__media{ position:relative; display:flex; justify-content:center; gap:20px; flex-wrap:wrap; perspective:var(--persp); }
 
 .ticks{ list-style:none; padding:0; margin:0; display:grid; gap:10px; }
 .ticks li{ position:relative; padding-left:28px; color:var(--body); }
@@ -264,10 +297,18 @@ button{ font:inherit; color:inherit; }
    check them against your real /shots dimensions if you swap assets. */
 .shot .media{ width:100%; height:auto; aspect-ratio:9/19.5; object-fit:cover; object-position:top center; background:#0E0C0B; }
 .shot--card .media{ aspect-ratio:4/5; object-fit:contain; }
-.shot--tilt-r{ transform:rotate(2.2deg); }
-.shot--tilt-l{ transform:rotate(-2.2deg); }
+/* Screenshots as slabs standing in the room, not stickers rotated on the
+   page. Hovering brings one square to the viewer and pulls it forward. */
+.shot--tilt-r{ transform:rotateY(-14deg) rotateZ(1.4deg); }
+.shot--tilt-l{ transform:rotateY(14deg) rotateZ(-1.4deg); }
 .shot--sm{ max-width:270px; }
-@media (hover:hover){ .shot:hover{ transform:rotate(0) translateY(-8px); } }
+@media (hover:hover){
+  .shot:hover{ transform:rotateY(0) rotateZ(0) translateY(-10px) translateZ(46px); }
+}
+@media (max-width:640px){
+  .shot--tilt-r{ transform:rotateY(-8deg) rotateZ(1.4deg); }
+  .shot--tilt-l{ transform:rotateY(8deg) rotateZ(-1.4deg); }
+}
 
 .pull{
   margin:0; padding:20px 24px; border-left:3px solid var(--orange);
@@ -278,7 +319,7 @@ button{ font:inherit; color:inherit; }
 /* ---------- Third space ---------- */
 .third{ padding:var(--sec) 0; background:
   radial-gradient(70% 50% at 50% 0%, rgba(255,77,15,.10), transparent 70%), var(--bg); }
-.third__media{ display:flex; justify-content:center; gap:clamp(16px,4vw,48px); flex-wrap:wrap; margin:clamp(32px,5vw,56px) 0; }
+.third__media{ display:flex; justify-content:center; gap:clamp(16px,4vw,48px); flex-wrap:wrap; margin:clamp(32px,5vw,56px) 0; perspective:var(--persp); }
 .third__stats{
   display:grid; grid-template-columns:repeat(3,1fr); gap:18px;
   max-width:940px; margin-inline:auto; text-align:center;
@@ -292,35 +333,60 @@ button{ font:inherit; color:inherit; }
 .orbit{
   position:relative; width:min(340px,80vw); aspect-ratio:1; flex:none;
   display:grid; place-items:center;
+  /* A real ring in space: the satellites travel around the core on the Z
+     axis, so the far half genuinely recedes behind it. --orbit-r is the
+     ring radius, dropped on small screens so it stays inside the column. */
+  --orbit-r: min(140px, 34vw);
+  --orbit-tilt: 26deg;   /* enough that the path reads as an ellipse, not a row */
+  perspective:760px; transform-style:preserve-3d;
 }
+/* The rings lie in the satellites' own orbital plane (90deg to stand them on
+   edge, less the 13deg the ring is tilted toward the viewer). */
 .orbit__ring,.orbit__ring--2{
   position:absolute; inset:8%; border-radius:50%;
   border:1px solid var(--line-2);
-  transform:rotateX(66deg);
+  transform:rotateX(calc(90deg - var(--orbit-tilt)));
 }
 .orbit__ring--2{ inset:22%; border-color:rgba(255,77,15,.28); }
 .orbit__core{
-  position:relative; z-index:2; width:44%; aspect-ratio:1; border-radius:50%;
+  position:relative; z-index:2; transform:translateZ(0); width:44%; aspect-ratio:1; border-radius:50%;
   background:radial-gradient(circle at 35% 30%, var(--surface-2), #0E0C0B 70%);
   border:1px solid var(--line-2); display:grid; place-content:center; text-align:center;
   box-shadow:0 20px 50px rgba(0,0,0,.6), inset 0 0 40px rgba(255,77,15,.10);
 }
 .orbit__count{ font-family:var(--font-display); font-size:2.6rem; color:var(--orange); line-height:1; }
 .orbit__label{ font-size:.72rem; letter-spacing:.06em; text-transform:uppercase; color:var(--dim); }
-.orbit__sats{ position:absolute; inset:0; animation:spin 28s linear infinite; }
+.orbit__sats{
+  position:absolute; inset:0; transform-style:preserve-3d;
+  animation:orbit-spin 26s linear infinite;
+}
 .sat{
   position:absolute; top:50%; left:50%; width:46px; height:46px; margin:-23px;
   border-radius:50%; display:grid; place-items:center;
   font-size:.78rem; font-weight:700; letter-spacing:.03em;
   background:var(--surface-2); color:var(--dim);
   border:1px solid var(--line-2);
-  transform:rotate(calc(var(--i) * 60deg)) translate(min(155px,38vw)) rotate(calc(var(--i) * -60deg));
-  animation:spin-rev 28s linear infinite;
+  /* Placed on the ring, then counter-rotated every frame so the initials
+     stay square to the viewer instead of turning edge-on. */
+  animation:sat-face 26s linear infinite;
 }
 .sat--on{ color:var(--ink); border-color:var(--orange); box-shadow:0 0 0 4px rgba(255,77,15,.14); }
-@keyframes spin{ to{ transform:rotate(360deg); } }
-@keyframes spin-rev{ to{ transform:rotate(calc(var(--i) * 60deg)) translate(min(155px,38vw)) rotate(calc(var(--i) * -60deg - 360deg)); } }
-@media (max-width:900px){ .orbit{ display:none; } }
+@keyframes orbit-spin{
+  from{ transform:rotateX(calc(var(--orbit-tilt) * -1)) rotateY(0deg); }
+  to  { transform:rotateX(calc(var(--orbit-tilt) * -1)) rotateY(360deg); }
+}
+/* Undo the parent's Y spin and its X tilt, so the initials stay square to the
+   viewer while the ring itself keeps turning underneath them. */
+@keyframes sat-face{
+  from{ transform:rotateY(calc(var(--i) * 60deg)) translateZ(var(--orbit-r)) rotateY(calc(var(--i) * -60deg)) rotateX(var(--orbit-tilt)); }
+  to  { transform:rotateY(calc(var(--i) * 60deg)) translateZ(var(--orbit-r)) rotateY(calc(var(--i) * -60deg - 360deg)) rotateX(var(--orbit-tilt)); }
+}
+/* Kept on phones now that it fits — it is the clearest thing on the page. */
+@media (max-width:900px){ .orbit{ --orbit-r:min(118px,31vw); width:min(260px,74vw); } }
+@media (prefers-reduced-motion:reduce){
+  .orbit__sats{ animation:none; transform:rotateX(calc(var(--orbit-tilt) * -1)); }
+  .sat{ animation:none; transform:rotateY(calc(var(--i) * 60deg)) translateZ(var(--orbit-r)) rotateY(calc(var(--i) * -60deg)) rotateX(var(--orbit-tilt)); }
+}
 
 /* ---------- Recovery body map ---------- */
 .bodymap{ padding:var(--sec) 0; background:var(--bg-2); border-block:1px solid var(--line); }
@@ -396,8 +462,24 @@ button{ font:inherit; color:inherit; }
 .proof__bar span{ color:var(--dim); font-size:.9rem; }
 @media (max-width:760px){ .proof__bar{ grid-template-columns:repeat(2,1fr); } }
 
-.proof__reviews{ display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:18px; margin-top:22px; }
-.review{ background:var(--surface); border:1px solid var(--line); border-radius:var(--r); padding:22px; }
+.proof__reviews{ display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:18px; margin-top:22px; perspective:var(--persp); }
+/* Marks a block whose contents are placeholders. Only ever rendered when
+   something other than real App Store reviews is in REVIEWS. */
+.proof__sample{
+  display:flex; align-items:center; gap:10px; margin:26px 0 0;
+  border:1px dashed rgba(255,77,15,.5); border-radius:var(--r-sm);
+  padding:10px 14px; color:var(--dim); font-size:.86rem;
+}
+.proof__sample b{ color:var(--orange); text-transform:uppercase; letter-spacing:.08em; font-size:.76rem; }
+.review{
+  background:var(--surface); border:1px solid var(--line); border-radius:var(--r); padding:22px;
+  transform:rotateY(7deg); transform-origin:left center;
+  transition:transform .45s cubic-bezier(.2,.7,.3,1), border-color .45s;
+}
+.review:nth-child(even){ transform:rotateY(-7deg); transform-origin:right center; }
+@media (hover:hover){
+  .review:hover,.review:nth-child(even):hover{ transform:rotateY(0) translateZ(34px); border-color:var(--line-2); }
+}
 .review__stars{ color:var(--orange); letter-spacing:.1em; margin-bottom:8px; }
 .review p{ margin:0 0 12px; color:var(--body); }
 .review cite{ font-style:normal; font-size:.86rem; color:var(--dim); }
@@ -463,6 +545,13 @@ button{ font:inherit; color:inherit; }
 .modal__qr canvas,.modal__qr svg{ width:100%; height:100%; display:block; }
 
 /* ---------- Scroll reveal ---------- */
-[data-reveal]{ opacity:0; transform:translateY(22px); transition:opacity .7s ease, transform .7s cubic-bezier(.2,.7,.3,1); }
-[data-reveal].is-in{ opacity:1; transform:none; }
+/* Reveal as a hinge rather than a slide: content tips up from its own base
+   into the page's shared perspective. */
+[data-reveal]{
+  opacity:0;
+  transform:perspective(var(--persp)) translateY(26px) translateZ(-70px) rotateX(8deg);
+  transform-origin:50% 100%;
+  transition:opacity .75s ease, transform .75s cubic-bezier(.2,.7,.3,1);
+}
+[data-reveal].is-in{ opacity:1; transform:perspective(var(--persp)) translateY(0) translateZ(0) rotateX(0); }
 @media (prefers-reduced-motion: reduce){ [data-reveal]{ opacity:1; transform:none; } }

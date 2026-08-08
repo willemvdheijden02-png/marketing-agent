@@ -88,15 +88,27 @@
     </div>
 
     <div class="hero__media">
-      <div class="phone" data-tilt>
-        <div class="phone__screen">
-          <!-- Video slot: drops to the real screenshot until a clip exists. -->
-          <video class="media" playsinline muted loop preload="none"
-                 poster="https://www.gymcircle.app/shots/train.png"
-                 data-clip="clips/train.mp4" data-autoplay-in-view
-                 aria-label="Logging a workout in GymCircle"></video>
+      <div class="scene">
+        <div class="phone" data-tilt>
+          <div class="phone__screen">
+            <!-- Video slot: drops to the real screenshot until a clip exists. -->
+            <video class="media" playsinline muted loop preload="none"
+                   poster="https://www.gymcircle.app/shots/train.png"
+                   data-clip="clips/train.mp4" data-autoplay-in-view
+                   aria-label="Logging a workout in GymCircle"></video>
+          </div>
+          <div class="phone__glare" aria-hidden="true"></div>
         </div>
-        <div class="phone__glare" aria-hidden="true"></div>
+        <!-- Illustrative app UI, floating at their own depth. Decorative: the
+             hero's claims are in the copy and the trust list, not in here. -->
+        <div class="float float--pr" data-depth="34" aria-hidden="true">
+          <span class="float__dot float__dot--pr"></span>
+          <span><strong>New PR</strong><span>Bench · 92.5 kg</span></span>
+        </div>
+        <div class="float float--crew" data-depth="62" aria-hidden="true">
+          <span class="float__dot float__dot--ready"></span>
+          <span><strong>4 of 6 in</strong><span>trained this week</span></span>
+        </div>
       </div>
     </div>
   </div>
@@ -176,7 +188,7 @@
   <div class="wrap">
     <p class="step step--center">03</p>
     <h2 class="display display--lg center">The gym is your <em>third space</em></h2>
-    <p class="lede center narrow">Not home. Not work. The place where your people are. Every gym has a page: sessions, PRs, and who trains there. GymCircle turns solo training into somewhere you belong.</p>
+    <p class="lede center narrow">Not home. Not work. Every gym has its own page — sessions, PRs, and who trains there.</p>
     <div class="third__media">
       <figure class="shot shot--tilt-l">
         <img class="media" loading="lazy" src="https://www.gymcircle.app/shots/map.png" alt="Gym map showing friends and your gyms">
@@ -419,7 +431,7 @@
     <div class="feature__copy">
       <p class="step">05</p>
       <h2 class="display">Keep score</h2>
-      <p class="body">PRs get a spotlight your crew actually sees, and every session earns its keep: levels, badges, weekly challenges, and a seasonal league to climb. Friendly fire only. But nobody wants to finish the season in Bronze.</p>
+      <p class="body">PRs get a spotlight your crew actually sees. Levels, badges, weekly challenges, and a seasonal league to climb. Nobody wants to finish the season in Bronze.</p>
       <ul class="ticks">
         <li>PRs your circle sees and reacts to</li>
         <li>Streaks, levels and badges</li>

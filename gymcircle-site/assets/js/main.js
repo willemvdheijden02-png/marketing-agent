@@ -12,6 +12,11 @@ const REVIEWS = [
   // { stars: 5, text: "…", author: "— name, App Store" },
 ];
 
+/* Set to true only by the design-preview build, which fills REVIEWS with
+   placeholders. It makes the block render a "not real reviews" notice, so a
+   preview can never be mistaken for shipped social proof. Ships as false. */
+const REVIEWS_ARE_SAMPLES = false;
+
 /* ---------- 1. Analytics ---------------------------------------------------
    Vendor-agnostic. Fires into GA4 (gtag), Plausible, PostHog or dataLayer —
    whichever is present. Without this, "did the redesign work?" is unanswerable,
@@ -100,7 +105,8 @@ addEventListener('scroll', () => nav.classList.toggle('is-stuck', scrollY > 12),
 /* ---------- 4. Scroll reveal --------------------------------------------- */
 (() => {
   const targets = document.querySelectorAll(
-    '.feature__copy, .feature__media, .third__media, .third__stats, .proof__bar, .founders__quote, .body3d__stage'
+    '.feature__copy, .feature__media, .third__media, .third__stats, ' +
+    '.proof__bar, .proof__reviews, .founders__quote, .bodymap__stage'
   );
   targets.forEach((el) => el.setAttribute('data-reveal', ''));
   const io = new IntersectionObserver((entries) => {
@@ -120,16 +126,36 @@ document.querySelectorAll('.acc__btn').forEach((btn) => {
   });
 });
 
-/* ---------- 6. Hero phone: subtle parallax tilt -------------------------- */
+/* ---------- 6. Hero scene: parallax tilt ---------------------------------
+   The phone rotates; the two UI cards translate by their own data-depth, so
+   they part from the handset as the pointer moves instead of tracking it
+   rigidly. That difference in rate is the whole illusion of depth.
+   -------------------------------------------------------------------------- */
 (() => {
   const phone = document.querySelector('[data-tilt]');
   if (!phone || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   if (!matchMedia('(hover:hover) and (min-width:981px)').matches) return;
-  addEventListener('pointermove', (e) => {
-    const x = (e.clientX / innerWidth - 0.5) * 2;
-    const y = (e.clientY / innerHeight - 0.5) * 2;
+
+  const floats = [...document.querySelectorAll('.float[data-depth]')];
+  let queued = false, px = 0, py = 0;
+
+  const paint = () => {
+    queued = false;
     phone.style.transform =
-      `rotateY(${-14 + x * 7}deg) rotateX(${4 - y * 4}deg) rotateZ(${1 + x}deg)`;
+      `rotateY(${-14 + px * 7}deg) rotateX(${4 - py * 4}deg) rotateZ(${1 + px}deg)`;
+    for (const f of floats) {
+      const d = Number(f.dataset.depth) || 0;
+      // `transform`, because the idle bob animation owns `translate` and a
+      // running animation outranks inline style for the property it animates.
+      // Keeps the 70px of Z that lifts the card clear of the handset.
+      f.style.transform = `translate3d(${-px * d}px, ${-py * d * 0.55}px, 70px)`;
+    }
+  };
+
+  addEventListener('pointermove', (e) => {
+    px = (e.clientX / innerWidth - 0.5) * 2;
+    py = (e.clientY / innerHeight - 0.5) * 2;
+    if (!queued) { queued = true; requestAnimationFrame(paint); }
   }, { passive: true });
 })();
 
@@ -144,6 +170,16 @@ document.querySelectorAll('.acc__btn').forEach((btn) => {
       <p>${r.text}</p>
       <cite>${r.author}</cite>
     </figure>`).join('');
+
+  // Design previews fill REVIEWS with placeholders so the block can be seen.
+  // Anything not from the App Store has to say so, on the page, next to it.
+  if (REVIEWS_ARE_SAMPLES) {
+    const note = document.createElement('p');
+    note.className = 'proof__sample';
+    note.innerHTML = '<b>Sample</b> Placeholder layout — not real reviews. '
+      + 'The block stays hidden until genuine App Store reviews are pasted in.';
+    host.after(note);
+  }
 })();
 
 /* ---------- 8. QR codes + modal ------------------------------------------ */
