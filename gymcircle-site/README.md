@@ -41,8 +41,8 @@ delete.html
 shots/               ← see "Assets" below
 ```
 
-Vercel / Netlify / Cloudflare Pages: point at this directory, no build command,
-output directory `.`.
+Any static host: point it at this directory. There is nothing to build and no
+output directory to configure.
 
 Local preview:
 
