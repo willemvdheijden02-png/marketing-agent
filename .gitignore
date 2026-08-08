@@ -31,3 +31,7 @@ auto_rapport_log.json
 # Same trap: robots.txt is a shipped part of the site, not a stray note.
 !gymcircle-site/robots.txt
 !preview/robots.txt
+
+# Never commit deploy credentials
+.vercel_token
+.vercel/
